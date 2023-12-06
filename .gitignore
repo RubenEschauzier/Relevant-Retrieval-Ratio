@@ -133,3 +133,5 @@ dist
 /packages/**/*.js
 /packages/**/*.map
 /packages/**/*.d.ts
+/solver/full_topology/*
+/solver/reduced_topology/*
