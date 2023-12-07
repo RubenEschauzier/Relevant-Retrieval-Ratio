@@ -21,8 +21,8 @@ class SolverRunner{
      * https://steinlib.zib.de/format.php
      */
 
-    public writeDirectedTopologyToFile(trackedTopology: TraversedGraph, relevantDocuments: string[], outputPath: string){
-        const edgeList = trackedTopology.getEdgeList();
+    public writeDirectedTopologyToFile(trackedTopology: TraversedGraph, edgeList: number[][], relevantDocuments: string[], outputPath: string){
+        // const edgeList = trackedTopology.getEdgeList();
         const metadata = trackedTopology.getMetaDataAll();
         const nodeToIndex = trackedTopology.getNodeToIndexes();
         edgeList.sort(function(a,b){return a[1] - b[1];});
@@ -88,14 +88,14 @@ class SolverRunner{
        */
 
       public writeDirectedTopologyFileReduced(
-        trackedTopology: TraversedGraph, 
+        trackedTopology: TraversedGraph,
+        edgeList: number[][], 
         optimalPathEdges: number[][], 
         relevantDocuments: number[], 
         nodesFullToReduced: Record<number, number>,
         outputPath: string){
         const metadata = trackedTopology.getMetaDataAll();
-        const edgeListOriginal = trackedTopology.getEdgeList();
-        const edgeListOriginalOneIndexedNoWeights = edgeListOriginal.map(x=>[x[0]+1, x[1]+1]);
+        const edgeListOriginalOneIndexedNoWeights = edgeList.map(x=>[x[0]+1, x[1]+1]);
         const nodesVisited = Array.from(new Set(optimalPathEdges.flat()));
 
         let graphString = `33D32945 STP File, STP Format Version 1.0\n`;
@@ -106,7 +106,7 @@ class SolverRunner{
         END\n\n`;
 
         graphString += `SECTION Graph \nNodes ${nodesVisited.length}\nEdges ${optimalPathEdges.length}\n`;
-        
+
         for (let i=0; i < optimalPathEdges.length; i++){
           // We have to find the origin edge list corresponding to a solution edge, as in the solution the weights are discarded
           const indexEdge = this.getOccurenceIndexEdge(edgeListOriginalOneIndexedNoWeights, optimalPathEdges[i]);
@@ -115,9 +115,9 @@ class SolverRunner{
           }
           // Original edges from full problem are 0 indexed
           const originalEdge = [
-          nodesFullToReduced[edgeListOriginal[indexEdge][0]+1], 
-          nodesFullToReduced[edgeListOriginal[indexEdge][1]+1], 
-          edgeListOriginal[indexEdge][2]
+          nodesFullToReduced[edgeList[indexEdge][0]+1], 
+          nodesFullToReduced[edgeList[indexEdge][1]+1], 
+          edgeList[indexEdge][2]
           ];
 
           const antiParallelEdge = [originalEdge[1], originalEdge[0], originalEdge[2]];
