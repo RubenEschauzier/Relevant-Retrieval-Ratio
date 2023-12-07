@@ -134,4 +134,6 @@ dist
 /packages/**/*.map
 /packages/**/*.d.ts
 /solver/full_topology/*
+!/solver/full_topology/write.set
 /solver/reduced_topology/*
+!/solver/reduced_topology/write.set

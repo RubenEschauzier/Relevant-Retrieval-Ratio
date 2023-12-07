@@ -11,20 +11,11 @@ class MetricOptimalTraversalUnweighted{
         const relevantTraversalPath = this.getTraversalPointAllRelevantDocumentsVisited(relevantDocumentNodeIds, engineTraversalPath);
         const optimalTraversalPathFlat = this.getNodeVisitOrderOptimalPath(optimalTraversalPath);
         return ((relevantTraversalPath.length - optimalTraversalPathFlat.length) / engineTraversalPath.length)*100;
-
     }
 
-    // /**
-    //  * Get metric first K results by getting all combinations of first K possible results 
-    //  * and using the traversal path that has the least cost. Note we reapply the solver for each combination
-    //  * on the reduced optimal graph for all results. (TODO: Prove this is still optimal)
-    //  */
-    // public getMetricFirstK(topology: TraversedGraph, relevantDocumentsNodeIds: number[], engineTraversalPath: number[],
-    //     optimalTraversalPath: number[][]){
-    //         const relevantTraversalPath = this.getTraversalPointAllRelevantDocumentsVisited(relevantDocumentsNodeIds, engineTraversalPath);
-    //         const 
-    // }
-
+    public getMetricWeighted(relevantDocumentNodeIds: number[], engineTraversalPath: number[], optimalTraversalPath: number[][]){
+        
+    }
     public getAllRootNodes(metadata: Record<string, any>[]){
         const roots = [];
         for (let i = 0; i < metadata.length; i++){
