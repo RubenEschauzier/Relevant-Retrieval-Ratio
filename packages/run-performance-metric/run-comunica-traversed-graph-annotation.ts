@@ -111,11 +111,12 @@ class LinkTraversalPerformanceMetrics{
       const relevantDocumentIndex = relevantDocuments.map(x=>nodeToIndex[x] + 1);
 
       const numValidCombinations = this.getNumValidCombinations(relevantDocuments.length, k);
-      const combinations = this.getAllValidCombinations(relevantDocumentIndex, k);
 
       if (numValidCombinations > 1000000){
         console.warn(`INFO: Large number of combinations (${numValidCombinations}) to compute detected.`);
       }
+
+      const combinations = this.getAllValidCombinations(relevantDocumentIndex, k);
 
       for (const combination of combinations){
         const nodesOptimalPathAll = Array.from(new Set(optimalTraversalPathAll.flat()));
