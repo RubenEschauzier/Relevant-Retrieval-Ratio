@@ -1,5 +1,3 @@
-import {BindingsStream} from "@comunica/types";
-import {Bindings} from "@comunica/bindings-factory";
 import { TraversedGraph } from "@comunica/actor-construct-traversed-topology-url-to-graph"
 import * as fs from "fs"; 
 import { exec } from "child_process";
@@ -179,13 +177,21 @@ class SolverRunner{
   
       public parseSolverResult(solverResultFileLocation: string): ISolverOutput{
         const data = fs.readFileSync(solverResultFileLocation, {encoding: "utf-8"});
+        // The absolute worst way of parsing this 
+        const result_section = data.split('SECTION Solutions')[1].split("End")[0].trim().split("  ");
+        let optimalCost = -1;
+        for (const substr of result_section){
+          if (+substr.trim() > 0){
+            optimalCost = +substr.trim()
+          }
+        }
         // Solver result will always have solution after header SECTION Finalsolution
-        const result_section = data.split('SECTION Finalsolution')[1].split("End")[0];
-        const edgeInfo = result_section.split("Edges")[1];
+        const final_result_section = data.split('SECTION Finalsolution')[1].split("End")[0];
+        const edgeInfo = final_result_section.split("Edges")[1];
         const totalEdges = edgeInfo.split("\n")[0];
         const edgesInSolution = edgeInfo.split("\n").slice(1, edgeInfo.split("\n").length-1);
         const edgesAsList = edgesInSolution.map(x=>x.split(' ').slice(1).map(y => Number(y)));
-        return {nEdges: Number(totalEdges), edges: edgesAsList};
+        return {nEdges: Number(totalEdges), edges: edgesAsList, optimalCost: optimalCost};
       }
 }  
 
@@ -199,5 +205,9 @@ export interface ISolverOutput{
      * The edges that represent optimal traversal of the topology
      */
     edges: number[][]
+    /**
+     * Optimal cost of steiner tree
+     */
+    optimalCost: number;
 }
 export { SolverRunner };

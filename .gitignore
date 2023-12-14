@@ -137,3 +137,5 @@ dist
 !/solver/full_topology/write.set
 /solver/reduced_topology/*
 !/solver/reduced_topology/write.set
+/data/*
+!/data/.keep

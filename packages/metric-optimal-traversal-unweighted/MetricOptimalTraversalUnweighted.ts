@@ -1,5 +1,3 @@
-import { TraversedGraph } from "@comunica/actor-construct-traversed-topology-url-to-graph"
-import * as assert from "assert"
 class MetricOptimalTraversalUnweighted{
     public constructor(){
     }
@@ -7,15 +5,39 @@ class MetricOptimalTraversalUnweighted{
      * Get metric comparing optimal traversal path for all results vs engine's traversal path
      * The metric represent the percentage of links dereferenced that were on the optimal path
      */
-    public getMetricUnweighted(relevantDocumentNodeIds: number[], engineTraversalPath: number[], optimalTraversalPath: number[][]){
-        const relevantTraversalPath = this.getTraversalPointAllRelevantDocumentsVisited(relevantDocumentNodeIds, engineTraversalPath);
+    public getMetricAll(relevantDocumentNodeIds: number[], engineTraversalPath: number[], optimalTraversalPath: number[][]){
+        const relevantTraversalPath = this.getTraversalPointKRelevantDocumentsVisited(
+            relevantDocumentNodeIds.length, relevantDocumentNodeIds, engineTraversalPath
+        );
         const optimalTraversalPathFlat = this.getNodeVisitOrderOptimalPath(optimalTraversalPath);
-        return ((relevantTraversalPath.length - optimalTraversalPathFlat.length) / engineTraversalPath.length)*100;
+        // TODO: THIS IS WRONG SEE run-comunica-traversed-graph-annotations.ts
+        return ((relevantTraversalPath.length - optimalTraversalPathFlat.length) / relevantTraversalPath.length)*100;
     }
 
-    public getMetricWeighted(relevantDocumentNodeIds: number[], engineTraversalPath: number[], optimalTraversalPath: number[][]){
-        
+    /**
+     * Get metric for first $k$ results. Compare optimal path calculated using steiner trees to the path the engine takes untill 
+     * it dereferences enough documents for $k$ results.
+     * TODO: Think about when multiple documents are needed for 1 result, we don't deal with that properly now as each document will be treated 
+     * as seperate result.
+     * TODO: Metric needs to be either: we follow this many times more links than needed (simple division tbh)
+     * @param k 
+     * @param relevantDocumentNodeIds 
+     * @param engineTraversalPath 
+     * @param optimalTraversalPath 
+     * @returns 
+     */
+    public getMetricFirstK(k: number, relevantDocumentNodeIds: number[], engineTraversalPath: number[], optimalTraversalPath: number[][]){
+        const relevantTraversalPath = this.getTraversalPointKRelevantDocumentsVisited(k, relevantDocumentNodeIds, engineTraversalPath);
+        const optimalTraversalPathFlat = this.getNodeVisitOrderOptimalPath(optimalTraversalPath);
+        console.log(relevantTraversalPath);
+        console.log(optimalTraversalPath);
+        console.log(optimalTraversalPathFlat)
+        return ((relevantTraversalPath.length - optimalTraversalPathFlat.length) / relevantTraversalPath.length)*100;
     }
+
+    public getMetricWeightedPenalty(){
+    }
+
     public getAllRootNodes(metadata: Record<string, any>[]){
         const roots = [];
         for (let i = 0; i < metadata.length; i++){
@@ -33,7 +55,7 @@ class MetricOptimalTraversalUnweighted{
      * @param engineTraversalPath The traversal path the engine dereferenced documents in
      * @returns The minimal required traversal of the engine to get to all relevant documents
      */
-    public getTraversalPointAllRelevantDocumentsVisited(relevantDocumentNodeIds: number[], engineTraversalPath: number[]): number[]  {
+    public getTraversalPointKRelevantDocumentsVisited(k: number, relevantDocumentNodeIds: number[], engineTraversalPath: number[]): number[]  {
         const visitedRelevantNodes = new Set();
         const traversalUntillAllVisited = [];
         for (let i = 0; i < engineTraversalPath.length; i++){
@@ -42,7 +64,7 @@ class MetricOptimalTraversalUnweighted{
                 visitedRelevantNodes.add(newVisitedNode);
             }
             traversalUntillAllVisited.push(newVisitedNode);
-            if (visitedRelevantNodes.size == relevantDocumentNodeIds.length){
+            if (visitedRelevantNodes.size == k){
                 break;
             }
         }

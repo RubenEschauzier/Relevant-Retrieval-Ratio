@@ -5,8 +5,10 @@ import {KeysTraversedTopology} from "@comunica/context-entries-link-traversal";
 import { ActionContext } from '@comunica/core';
 import { TraversedGraph } from "@comunica/actor-construct-traversed-topology-url-to-graph"
 import { ISolverOutput, SolverRunner } from "../solver-runner/SolverRunner";
-import { MetricOptimalTraversalUnweighted } from "../metric-optimal-traversal-unweighted/MetricOptimalTraversalUnweighted"
-import * as fs from 'fs'
+import { MetricOptimalTraversalUnweighted } from "../metric-optimal-traversal-unweighted/MetricOptimalTraversalUnweighted";
+import * as fs from 'fs';
+import type { Cluster } from 'cluster';
+
 // Steiner tree solver: https://steinlib.zib.de/format.php   -------- https://scipjack.zib.de/#download
 // https://github.com/suhastheju/steiner-edge-linear 
 
@@ -97,7 +99,7 @@ class LinkTraversalPerformanceMetrics{
     }
 
     public async getOptimalPathFirstK(k: number, topology: TraversedGraph, edgeList: number[][], relevantDocuments: string[], 
-      engineTraversalPath: string[], optimalTraversalPathAll: number[][], 
+      optimalTraversalPathAll: number[][], 
       nodeToIndex: Record<string, number>,
       outputDirectedTopology: string,
       solverLocation: string,
@@ -105,7 +107,7 @@ class LinkTraversalPerformanceMetrics{
     ){
       const solverOutputs = [];
       let minFirstKPathLength = Infinity;
-      let minSolverOutput: ISolverOutput = {nEdges: Infinity, edges: []};
+      let minSolverOutput: ISolverOutput = {nEdges: Infinity, edges: [], optimalCost: -1};
 
       const outputLocation = this.readOutputDirFromSettingFile(settingFileLocation);
       const relevantDocumentIndex = relevantDocuments.map(x=>nodeToIndex[x] + 1);
@@ -118,14 +120,18 @@ class LinkTraversalPerformanceMetrics{
 
       const combinations = this.getAllValidCombinations(relevantDocumentIndex, k);
 
+      const nodesOptimalPathAll = Array.from(new Set(optimalTraversalPathAll.flat()));
+      const nodesFullToReduced: Record<number, number> = {};
+      const nodesReducedToFull : Record<number, number> = {};
+
+      let newNodeIndex = 1;
+      for (let i = 0; i < nodesOptimalPathAll.length; i++){
+        nodesFullToReduced[nodesOptimalPathAll[i]] = newNodeIndex;
+        nodesReducedToFull[newNodeIndex] = nodesOptimalPathAll[i];
+        newNodeIndex += 1;
+      }
+
       for (const combination of combinations){
-        const nodesOptimalPathAll = Array.from(new Set(optimalTraversalPathAll.flat()));
-        const nodesFullToReduced: Record<number, number> = {}
-        let newNodeIndex = 1;
-        for (let i = 0; i < nodesOptimalPathAll.length; i++){
-          nodesFullToReduced[nodesOptimalPathAll[i]] = newNodeIndex;
-          newNodeIndex += 1
-        }
         this.solverRunner.writeDirectedTopologyFileReduced(topology, edgeList,
           optimalTraversalPathAll, combination, nodesFullToReduced, "solver/reduced_topology/traversalTopologyReduced.stp");
         await this.solverRunner.runSolver(solverLocation, outputDirectedTopology, settingFileLocation);
@@ -136,7 +142,14 @@ class LinkTraversalPerformanceMetrics{
         }
         solverOutputs.push(solverOutput);
       }
-      return minSolverOutput;
+
+      const optimalPathOutput: IOptimalPathFirstK = {
+        nEdges: minSolverOutput.nEdges,
+        edges: minSolverOutput.edges,
+        optimalCost: minSolverOutput.optimalCost,
+        nodeReducedToFull: nodesReducedToFull    
+      }
+      return optimalPathOutput;
     }
 
     public async getOptimalPathAll(trackedTopology: TraversedGraph, 
@@ -153,17 +166,32 @@ class LinkTraversalPerformanceMetrics{
       return this.solverRunner.parseSolverResult(outputLocation);
     }
 
-    public async runUnweightedMetricAll(
+    public async runMetricAll(      
       topology: TraversedGraph, 
-      relevantDocuments: string[], engineTraversalPath: string[], 
+      relevantDocuments: string[],
+      engineTraversalPath: string[], 
       outputDirectedTopology: string,
       solverLocation: string,
       settingFileLocation: string,
-      nodeToIndex: Record<string, number>
-      ){
+      nodeToIndex: Record<string, number>,
+      topologyType: topologyType
+    ){
+      let edgeList = []
+      switch (topologyType) {
+        case 'unweighted':
+          edgeList = topology.getEdgeList();
+          break;
+        case 'httpRequestTime':
+          edgeList = topology.getEdgeListHTTP();
+          break;
+        case 'documentSize':
+          edgeList = topology.getEdgeListDocumentSize();
+          break;
+      }
+
       const shortestPath = await runner.getOptimalPathAll(
         topology, 
-        topology.getEdgeList(),
+        edgeList,
         relevantDocuments, 
         outputDirectedTopology, 
         solverLocation,
@@ -174,8 +202,69 @@ class LinkTraversalPerformanceMetrics{
       const engineTraversalPathNodeIndex = engineTraversalPath.map(x=>nodeToIndex[x]+1);
       const relevantDocumentIndex = relevantDocuments.map(x=>nodeToIndex[x] + 1);
 
-      return this.metricOptimalPathUnweighted.getMetricUnweighted(relevantDocumentIndex, 
+      return this.metricOptimalPathUnweighted.getMetricAll(relevantDocumentIndex, 
         engineTraversalPathNodeIndex, shortestPath.edges);
+    }
+
+    public async runMetricFirstK(
+      k: number, 
+      topology: TraversedGraph, 
+      relevantDocuments: string[], 
+      engineTraversalPath: string[],
+      nodeToIndex: Record<string, number>,
+      outputDirectedTopology: string,
+      solverLocation: string,
+      settingFileLocation: string,
+      outputDirectedTopologyAllResults: string,
+      solverLocationAllResults: string,
+      settingFileLocationAllResults: string,
+      topologyType: topologyType
+    ){
+      let edgeList = []
+      switch (topologyType) {
+        case 'unweighted':
+          edgeList = topology.getEdgeList();
+          break;
+        case 'httpRequestTime':
+          edgeList = topology.getEdgeListHTTP();
+          break;
+        case 'documentSize':
+          edgeList = topology.getEdgeListDocumentSize();
+          break;
+      }
+
+      const solverOutputAllResults = await runner.getOptimalPathAll(
+        topology, 
+        edgeList,
+        relevantDocuments, 
+        outputDirectedTopologyAllResults, 
+        solverLocationAllResults,
+        settingFileLocationAllResults
+      );
+  
+      const shortestPath = await this.getOptimalPathFirstK(
+        k, topology, edgeList,
+        relevantDocuments, 
+        solverOutputAllResults.edges, 
+        nodeToIndex,
+        outputDirectedTopology,
+        solverLocation,
+        settingFileLocation
+      );
+
+      const engineTraversalPathNodeIndex = engineTraversalPath.map(x=>nodeToIndex[x] + 1);
+      const relevantDocumentIndex = relevantDocuments.map(x=>nodeToIndex[x] + 1);
+      // Map reduced nodes back to corresponding nodes in full traversed topology
+      const shortestPathFirstK = shortestPath.edges.map(x => x.map(y => shortestPath.nodeReducedToFull[y]));
+
+      const metricFirstK = this.metricOptimalPathUnweighted.getMetricFirstK(
+        k,
+        relevantDocumentIndex, 
+        engineTraversalPathNodeIndex, 
+        shortestPathFirstK
+      );
+        
+      return metricFirstK;
     }
 
     public async runUnWeightedMetricFirstK(k: number, topology: TraversedGraph, relevantDocuments: string[], 
@@ -201,7 +290,7 @@ class LinkTraversalPerformanceMetrics{
       const shortestPath = await this.getOptimalPathFirstK(
         k, topology, topology.getEdgeList(),
         relevantDocuments, 
-        engineTraversalPath, solverOutputAllResults.edges, 
+        solverOutputAllResults.edges, 
         nodeToIndex,
         outputDirectedTopology,
         solverLocation,
@@ -212,40 +301,12 @@ class LinkTraversalPerformanceMetrics{
       const relevantDocumentIndex = relevantDocuments.map(x=>nodeToIndex[x] + 1);
 
 
-      const metricFirstK = this.metricOptimalPathUnweighted.getMetricUnweighted(relevantDocumentIndex, 
+      const metricFirstK = this.metricOptimalPathUnweighted.getMetricAll(relevantDocumentIndex, 
         engineTraversalPathNodeIndex, 
         shortestPath.edges);
       
       return metricFirstK;
     }
-
-    public async runHTTPRequestTimeweightedMetricAll(
-      topology: TraversedGraph, 
-      relevantDocuments: string[], engineTraversalPath: string[], 
-      outputDirectedTopology: string,
-      solverLocation: string,
-      settingFileLocation: string,
-      nodeToIndex: Record<string, number>
-      ){
-      const shortestPath = await runner.getOptimalPathAll(
-        topology, 
-        topology.getEdgeListHTTP(),
-        relevantDocuments, 
-        outputDirectedTopology, 
-        solverLocation,
-        settingFileLocation
-      );
-      console.log("Shortest Path")
-      console.log(shortestPath);
-    
-      // Map to index, we do +1 to make nodes 1 indexed like solver expects.
-      const engineTraversalPathNodeIndex = engineTraversalPath.map(x=>nodeToIndex[x]+1);
-      const relevantDocumentIndex = relevantDocuments.map(x=>nodeToIndex[x] + 1);
-
-      return this.metricOptimalPathUnweighted.getMetricUnweighted(relevantDocumentIndex, 
-        engineTraversalPathNodeIndex, shortestPath.edges);
-    }
-
 
     public async consumeStream(bindingStream: BindingsStream, dataProcessingFunction: Function){
         let numResults = 0;
@@ -270,6 +331,27 @@ class LinkTraversalPerformanceMetrics{
    }
 }
 
+class linkTraversalTopologyTracker{
+  public engine: any;
+  public queryEngine: any;
+
+  public constructor(){
+    this.queryEngine = require("@comunica/query-sparql-link-traversal-solid").QueryEngine;
+  }
+
+  public async createEngine(){
+    this.engine = new this.queryEngine();
+  }
+
+  public runWorker(){
+
+  }
+
+  public runMaster(){
+    
+  }
+
+}
 const query = `PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX snvoc: <https://solidbench.linkeddatafragments.org/www.ldbc.eu/ldbc_socialnet/1.0/vocabulary/>
 SELECT ?messageId ?messageCreationDate ?messageContent WHERE {
@@ -338,19 +420,34 @@ runner.createEngine().then(async () => {
     // Execute entire query, should be a promise with timeout though
     const bindings: Bindings[] = await bindingStream.toArray();
     const contributingDocuments = runner.extractContributingDocuments(bindings);
+    // console.log(contributingDocuments)
 
-    const metricUnweightedAll = await runner.runUnweightedMetricAll(
-      constuctTopologyOutput.topology,
-      contributingDocuments.flat(), 
-      constuctTopologyOutput.topology.traversalOrder,
-      "solver/full_topology/traversalTopology.stp", 
-      "solver/scipstp",
-      "solver/full_topology/write.set",
-      constuctTopologyOutput.topology.nodeToIndex
-    );
-    console.log(`Metric unweighted all: ${metricUnweightedAll}`);
+    // const metricUnweightedAll = await runner.runMetricAll(
+    //   constuctTopologyOutput.topology,
+    //   contributingDocuments.flat(), 
+    //   constuctTopologyOutput.topology.traversalOrder,
+    //   "solver/full_topology/traversalTopology.stp", 
+    //   "solver/scipstp",
+    //   "solver/full_topology/write.set",
+    //   constuctTopologyOutput.topology.nodeToIndex,
+    //   "unweighted"
+    // );
+
     const k = 3
-    const metricUnweightedFirstK = await runner.runUnWeightedMetricFirstK(
+    // const metricUnweightedFirstK = await runner.runUnWeightedMetricFirstK(
+    //   k, constuctTopologyOutput.topology, contributingDocuments.flat(),
+    //   constuctTopologyOutput.topology.traversalOrder, 
+    //   constuctTopologyOutput.topology.nodeToIndex,
+    //   "solver/reduced_topology/traversalTopologyReduced.stp", 
+    //   "solver/scipstp",
+    //   "solver/reduced_topology/write.set",
+    //   "solver/full_topology/traversalTopology.stp", 
+    //   "solver/scipstp",
+    //   "solver/full_topology/write.set"
+    // );
+    // console.log(`Metric unweighted first ${k}: ${metricUnweightedFirstK}`);
+
+    const test = await runner.runMetricFirstK(
       k, constuctTopologyOutput.topology, contributingDocuments.flat(),
       constuctTopologyOutput.topology.traversalOrder, 
       constuctTopologyOutput.topology.nodeToIndex,
@@ -359,18 +456,51 @@ runner.createEngine().then(async () => {
       "solver/reduced_topology/write.set",
       "solver/full_topology/traversalTopology.stp", 
       "solver/scipstp",
-      "solver/full_topology/write.set"
-    );
-    console.log(`Metric unweighted first ${k}: ${metricUnweightedFirstK}`);
-
-    const metricHTTPWeightedAll = await runner.runHTTPRequestTimeweightedMetricAll(
-      constuctTopologyOutput.topology,
-      contributingDocuments.flat(), 
-      constuctTopologyOutput.topology.traversalOrder,
-      "solver/full_topology/traversalTopology.stp", 
-      "solver/scipstp",
       "solver/full_topology/write.set",
-      constuctTopologyOutput.topology.nodeToIndex
+      "unweighted"
     );
+    console.log(`Metric unweighted first ${k}: ${test}`);
 
+    // const metricHTTPWeightedAll = await runner.runMetricAll(
+    //   constuctTopologyOutput.topology,
+    //   contributingDocuments.flat(), 
+    //   constuctTopologyOutput.topology.traversalOrder,
+    //   "solver/full_topology/traversalTopology.stp", 
+    //   "solver/scipstp",
+    //   "solver/full_topology/write.set",
+    //   constuctTopologyOutput.topology.nodeToIndex,
+    //   "httpRequestTime"
+    // );
+
+    // const metricDocumentSizeWeightedAll= await runner.runMetricAll(
+    //   constuctTopologyOutput.topology,
+    //   contributingDocuments.flat(), 
+    //   constuctTopologyOutput.topology.traversalOrder,
+    //   "solver/full_topology/traversalTopology.stp", 
+    //   "solver/scipstp",
+    //   "solver/full_topology/write.set",
+    //   constuctTopologyOutput.topology.nodeToIndex,
+    //   "documentSize"
+    // );
+
+
+
+    // TODO: Create one function that can run the different metric types by choosing a parameter value .
+    // TODO: First $k$ results time for different metric weights .
+    // TODO: Think about when multiple documents are needed for 1 result, we don't deal with that properly now as each document will be treated 
+    // as seperate result.
+    // TODO: Metric needs to be: we follow this many times more links than needed (simple division tbh)
+
+    // TODO: Add timeout for queries
+    // TODO: Handle queries that have no results, can we use unfragmented dataset?
+    // TODO: Create big experiment runner for all queries
+
+    // ----
+    // TODO: Implement algorithms Olaf
 });
+
+export interface IOptimalPathFirstK extends ISolverOutput{
+  nodeReducedToFull: Record<number, number>;
+}
+
+export type topologyType = "unweighted" | "httpRequestTime" | "documentSize"
