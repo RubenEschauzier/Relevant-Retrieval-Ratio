@@ -5,13 +5,28 @@ class MetricOptimalTraversalUnweighted{
      * Get metric comparing optimal traversal path for all results vs engine's traversal path
      * The metric represent the percentage of links dereferenced that were on the optimal path
      */
-    public getMetricAll(relevantDocumentNodeIds: number[], engineTraversalPath: number[], optimalTraversalPath: number[][]){
-        const relevantTraversalPath = this.getTraversalPointKRelevantDocumentsVisited(
-            relevantDocumentNodeIds.length, relevantDocumentNodeIds, engineTraversalPath
-        );
-        const optimalTraversalPathFlat = this.getNodeVisitOrderOptimalPath(optimalTraversalPath);
-        // TODO: THIS IS WRONG SEE run-comunica-traversed-graph-annotations.ts
-        return ((relevantTraversalPath.length - optimalTraversalPathFlat.length) / relevantTraversalPath.length)*100;
+    public getMetricFirstK(k: number, relevantDocumentNodeIds: number[], engineTraversalPath: number[][], optimalTraversalPath: number[][], 
+        edgeList: number[][]){
+        let optimalPathCost = 0;
+        for (const edge of optimalTraversalPath){
+            for ( const weightedEdge of edgeList ){
+                if (edge[0]===weightedEdge[0] && edge[1] === weightedEdge[1]){
+                    optimalPathCost += weightedEdge[2];
+                }
+            }
+        }
+        const relevantEngineTraversalPath = this.getTraversalPointKRelevantDocumentsVisited(k, 
+            relevantDocumentNodeIds, engineTraversalPath);
+        let engineTraversalPathCost = 0;
+        for (const edge of relevantEngineTraversalPath){
+            for ( const weightedEdge of edgeList ){
+                if (edge[0]===weightedEdge[0] && edge[1] === weightedEdge[1]){
+                    engineTraversalPathCost += weightedEdge[2];
+                }
+            }
+        }
+        // The metric simply measures how many links more the engine follows than the optimal path
+        return engineTraversalPathCost / optimalPathCost;
     }
 
     /**
@@ -26,14 +41,14 @@ class MetricOptimalTraversalUnweighted{
      * @param optimalTraversalPath 
      * @returns 
      */
-    public getMetricFirstK(k: number, relevantDocumentNodeIds: number[], engineTraversalPath: number[], optimalTraversalPath: number[][]){
-        const relevantTraversalPath = this.getTraversalPointKRelevantDocumentsVisited(k, relevantDocumentNodeIds, engineTraversalPath);
-        const optimalTraversalPathFlat = this.getNodeVisitOrderOptimalPath(optimalTraversalPath);
-        console.log(relevantTraversalPath);
-        console.log(optimalTraversalPath);
-        console.log(optimalTraversalPathFlat)
-        return ((relevantTraversalPath.length - optimalTraversalPathFlat.length) / relevantTraversalPath.length)*100;
-    }
+    // public getMetricFirstK(k: number, relevantDocumentNodeIds: number[], engineTraversalPath: number[], optimalTraversalPath: number[][]){
+    //     // const relevantTraversalPath = this.getTraversalPointKRelevantDocumentsVisited(k, relevantDocumentNodeIds, engineTraversalPath);
+    //     // const optimalTraversalPathFlat = this.getNodeVisitOrderOptimalPath(optimalTraversalPath);
+    //     // // console.log(relevantTraversalPath);
+    //     // // console.log(optimalTraversalPath);
+    //     // // console.log(optimalTraversalPathFlat)
+    //     // return ((relevantTraversalPath.length - optimalTraversalPathFlat.length) / relevantTraversalPath.length)*100;
+    // }
 
     public getMetricWeightedPenalty(){
     }
@@ -55,12 +70,14 @@ class MetricOptimalTraversalUnweighted{
      * @param engineTraversalPath The traversal path the engine dereferenced documents in
      * @returns The minimal required traversal of the engine to get to all relevant documents
      */
-    public getTraversalPointKRelevantDocumentsVisited(k: number, relevantDocumentNodeIds: number[], engineTraversalPath: number[]): number[]  {
+    public getTraversalPointKRelevantDocumentsVisited(k: number, relevantDocumentNodeIds: number[], engineTraversalPath: number[][]): number[][]  {
         const visitedRelevantNodes = new Set();
-        const traversalUntillAllVisited = [];
+        const traversalUntillAllVisited: number[][] = [];
         for (let i = 0; i < engineTraversalPath.length; i++){
             const newVisitedNode = engineTraversalPath[i];
-            if (relevantDocumentNodeIds.includes(newVisitedNode)){
+            // Edge denotes traversal to second element of edge, so we only check if second element
+            // Is a relevant node
+            if (relevantDocumentNodeIds.includes(newVisitedNode[1])){
                 visitedRelevantNodes.add(newVisitedNode);
             }
             traversalUntillAllVisited.push(newVisitedNode);
