@@ -74,6 +74,62 @@ class SolverRunner{
         graphString += `END\n\nEOF`
         fs.writeFileSync(outputPath, graphString);
       }
+
+      public writeDirectedTopologyToFile(trackedTopology: TraversedGraph, edgeList: number[][], relevantDocuments: string[], outputPath: string){
+        // const edgeList = trackedTopology.getEdgeList();
+        const metadata = trackedTopology.getMetaDataAll();
+        const nodeToIndex = trackedTopology.getNodeToIndexes();
+        edgeList.sort(function(a,b){return a[1] - b[1];});
+        
+        let graphString = `33D32945 STP File, STP Format Version 1.0\n`;
+        graphString += `SECTION Comment
+        Name    "Traversed Topology"
+        Creator "Ruben Eschauzier"
+        Problem "SAP"
+        Remark  "Traversed topology during Link Traversal-based Query Processing"
+        END\n\n`;
+        graphString += `SECTION Graph \nNodes ${metadata.length}\nEdges ${edgeList.length}\n`;
+        // Iterate over the edges and add to string
+        for (let i=0; i < edgeList.length; i++){
+          const antiParallelEdge = [edgeList[i][1], edgeList[i][0], edgeList[i][2]];
+          // If the graph contains an anti parallel edge, make weight of fourth number 1
+          let edgeString = "";
+          if (edgeList.includes(antiParallelEdge)){
+            edgeString = `A ${edgeList[i][0]+1} ${edgeList[i][1]+1} ${edgeList[i][2]} 1\n`
+          }
+          else{
+            edgeString = `A ${edgeList[i][0]+1} ${edgeList[i][1]+1} ${edgeList[i][2]} 200000\n`;
+          }
+          graphString += edgeString;
+        }
+        graphString += "END\n\n";
+        let numRoots = 0;
+        for (let k = 0; k < metadata.length; k++){
+          if (!metadata[k].hasParent){
+            numRoots += 1;
+          }
+        }
+  
+        // Add terminals (contributing documents)
+        graphString += `SECTION Terminals\nTerminals ${relevantDocuments.length + numRoots}\n`;
+        // All non-parent nodes are root nodes in this problem.
+        for (let k = 0; k < metadata.length; k++){
+          if (!metadata[k].hasParent){
+            graphString += `Root ${k+1}\n`
+          }
+        }
+        for (let k = 0; k < metadata.length; k++){
+          if (!metadata[k].hasParent){
+            graphString += `T ${k+1}\n`
+          }
+        }
+        for (let j = 0; j < relevantDocuments.length; j++){
+          const terminalIndex = nodeToIndex[relevantDocuments[j]] + 1;
+          graphString += `T ${terminalIndex}\n`
+        }
+        graphString += `END\n\nEOF`
+        fs.writeFileSync(outputPath, graphString);
+      }
   
       /**
        * Function that writes the full optimal graph problem with a subset of nodes as a .stp file for the solver. This is used to calculate the fastest
@@ -174,6 +230,20 @@ class SolverRunner{
         `./${solverLocation} -f ${inputFileLocation} -s ${settingFileLocation}`).catch((err: any)=>{console.log(err)});
         return stderr;
       }
+      /**
+       * 
+       * @param solverLocation Path from /package directory to the solver location (src/)
+       * @param pathFromSolverLocationToInputDir Path from src/ to the directory with inputs, in this case: ../input/. Note this has to end with /
+       * @param sub_dir Sub dir with the data needed to run solver, start without /, end with /. In standard case full_topology/
+       */
+      public async runSolverHeuristic(solverLocation: string, pathFromSolverLocationToInputDir: string, sub_dir: string){
+        const {stdout, stderr} = await this.execPromise(
+          `cd ${solverLocation} && javac Main.java && java Main ${pathFromSolverLocationToInputDir} ${sub_dir}`
+          ).catch((err: any) =>{
+            console.log(err)
+          }) 
+        return stdout
+      }
   
       public parseSolverResult(solverResultFileLocation: string): ISolverOutput{
         const data = fs.readFileSync(solverResultFileLocation, {encoding: "utf-8"});
@@ -192,6 +262,17 @@ class SolverRunner{
         const edgesInSolution = edgeInfo.split("\n").slice(1, edgeInfo.split("\n").length-1);
         const edgesAsList = edgesInSolution.map(x=>x.split(' ').slice(1).map(y => Number(y)));
         return {nEdges: Number(totalEdges), edges: edgesAsList, optimalCost: optimalCost};
+      }
+
+      public parseSolverResultHeuristic(stdoutHeuristic: string): ISolverOutput{
+        const reg = /^A \d+ \d+$/gm;
+        const edges = stdoutHeuristic.match(reg);
+        const edgesAsNumber = edges!.map(x => [Number(x.split(' ')[1]), Number(x.split(' ')[2])]);
+        edgesAsNumber.sort((a,b) => a[0]-b[0]);
+        if (!edges){
+          console.error("Solver found solution with no edges")
+        }
+        return {nEdges: edges!.length, edges: edgesAsNumber, optimalCost: 0}
       }
 }  
 

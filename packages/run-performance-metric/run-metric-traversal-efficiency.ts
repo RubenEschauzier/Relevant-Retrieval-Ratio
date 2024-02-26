@@ -11,7 +11,7 @@ import * as fs from 'fs';
 // Steiner tree solver: https://steinlib.zib.de/format.php   -------- https://scipjack.zib.de/#download
 // https://github.com/suhastheju/steiner-edge-linear 
 
-class LinkTraversalPerformanceMetrics{
+export class LinkTraversalPerformanceMetrics{
     public engine: any;
     public queryEngine: any;
     public binomialLookUp: number[];
@@ -151,6 +151,25 @@ class LinkTraversalPerformanceMetrics{
       }
       return optimalPathOutput;
     }
+    
+    /**
+     * Calculates the optimal path to take to traverse all terminal nodes in the graph. Note this implementation uses a heuristic
+     * It is not guaranteed to be optimal.
+     * @param edgeList 
+     * @param relevantDocuments 
+     * @param engineTraversalPath 
+     * @param rootDocuments 
+     * @param solverInputFileLocation 
+     */
+    public async getOptimalPathAllTest(
+      edgeList: number[][],
+      relevantDocuments: number[][],
+      engineTraversalPath: number[][],
+      rootDocuments: number[],
+      solverInputFileLocation: string
+    ){
+
+    }
 
     public async getOptimalPathAll(trackedTopology: TraversedGraph, 
       edgeList: number[][],
@@ -169,29 +188,23 @@ class LinkTraversalPerformanceMetrics{
       return this.solverRunner.parseSolverResult(outputLocation);
     }
 
-    public async getOptimalPathAllTest(trackedTopology: TraversedGraph, 
-      edgeList: number[][],
-      relevantDocuments: string[],
-      outputDirectedTopology: string,
-      solverLocation: string,
-      settingFileLocation: string
-    ): Promise<ISolverOutput> {
-      const outputLocation = this.readOutputDirFromSettingFile(settingFileLocation);
-      this.solverRunner.writeDirectedTopologyToFile(trackedTopology, edgeList, 
-      relevantDocuments, outputDirectedTopology);
-      const stdout = await this.solverRunner.runSolverHeuristic("heuristic-solver/src", "../input/", "full_topology/");
-      console.log("End")
-      return this.solverRunner.parseSolverResultHeuristic(stdout);
-      await this.solverRunner.runSolver(solverLocation, outputDirectedTopology, settingFileLocation);
-      return this.solverRunner.parseSolverResult(outputLocation);
-    }
+    /**
+     * 
+     * @param edgeList 
+     * @param relevantDocuments 
+     * @param engineTraversalPath 
+     * @param rootDocuments 
+     * @param solverInputFileLocation Absolute location of the place the metric calculator should construct the input file.
+     * This file will be constructed following the .stp format
+     */
     public async runMetricAllTest(
       edgeList: number[][],
       relevantDocuments: number[][],
       engineTraversalPath: number[][],
-      rootDocuments: number[]
+      rootDocuments: number[],
+      solverInputFileLocation: string
     ){
-      
+      const shortestPath = await this.getOptimalPathAllTest()
     }
     public async runMetricAll(      
       topology: TraversedGraph, 
@@ -364,143 +377,143 @@ class LinkTraversalPerformanceMetrics{
 }
 
 
-const query = `PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX snvoc: <https://solidbench.linkeddatafragments.org/www.ldbc.eu/ldbc_socialnet/1.0/vocabulary/>
-SELECT ?messageId ?messageCreationDate ?messageContent WHERE {
-  ?message snvoc:hasCreator <https://solidbench.linkeddatafragments.org/pods/00000000000000000933/profile/card#me>;
-    rdf:type snvoc:Post;
-    snvoc:content ?messageContent;
-    snvoc:creationDate ?messageCreationDate;
-    snvoc:id ?messageId.
-} `;
-const discover_6_1 = `PREFIX snvoc: <https://solidbench.linkeddatafragments.org/www.ldbc.eu/ldbc_socialnet/1.0/vocabulary/>
-SELECT DISTINCT ?forumId ?forumTitle WHERE {
-  ?message snvoc:hasCreator <https://solidbench.linkeddatafragments.org/pods/00000000000000000933/profile/card#me>.
-  ?forum snvoc:containerOf ?message;
-    snvoc:id ?forumId;
-    snvoc:title ?forumTitle.
-}`
+// const query = `PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+// PREFIX snvoc: <https://solidbench.linkeddatafragments.org/www.ldbc.eu/ldbc_socialnet/1.0/vocabulary/>
+// SELECT ?messageId ?messageCreationDate ?messageContent WHERE {
+//   ?message snvoc:hasCreator <https://solidbench.linkeddatafragments.org/pods/00000000000000000933/profile/card#me>;
+//     rdf:type snvoc:Post;
+//     snvoc:content ?messageContent;
+//     snvoc:creationDate ?messageCreationDate;
+//     snvoc:id ?messageId.
+// } `;
+// const discover_6_1 = `PREFIX snvoc: <https://solidbench.linkeddatafragments.org/www.ldbc.eu/ldbc_socialnet/1.0/vocabulary/>
+// SELECT DISTINCT ?forumId ?forumTitle WHERE {
+//   ?message snvoc:hasCreator <https://solidbench.linkeddatafragments.org/pods/00000000000000000933/profile/card#me>.
+//   ?forum snvoc:containerOf ?message;
+//     snvoc:id ?forumId;
+//     snvoc:title ?forumTitle.
+// }`
 
-const discover_8_5 = `PREFIX snvoc: <https://solidbench.linkeddatafragments.org/www.ldbc.eu/ldbc_socialnet/1.0/vocabulary/>
-SELECT DISTINCT ?creator ?messageContent WHERE {
-  <https://solidbench.linkeddatafragments.org/pods/00000006597069767117/profile/card#me> snvoc:likes _:g_0.
-  _:g_0 (snvoc:hasPost|snvoc:hasComment) ?message.
-  ?message snvoc:hasCreator ?creator.
-  ?otherMessage snvoc:hasCreator ?creator;
-    snvoc:content ?messageContent.
-}
-LIMIT 10`
+// const discover_8_5 = `PREFIX snvoc: <https://solidbench.linkeddatafragments.org/www.ldbc.eu/ldbc_socialnet/1.0/vocabulary/>
+// SELECT DISTINCT ?creator ?messageContent WHERE {
+//   <https://solidbench.linkeddatafragments.org/pods/00000006597069767117/profile/card#me> snvoc:likes _:g_0.
+//   _:g_0 (snvoc:hasPost|snvoc:hasComment) ?message.
+//   ?message snvoc:hasCreator ?creator.
+//   ?otherMessage snvoc:hasCreator ?creator;
+//     snvoc:content ?messageContent.
+// }
+// LIMIT 10`
 
-const discover_3_5 = `PREFIX snvoc: <https://solidbench.linkeddatafragments.org/www.ldbc.eu/ldbc_socialnet/1.0/vocabulary/>
-PREFIX foaf: <http://xmlns.com/foaf/0.1/>
-SELECT ?tagName (COUNT(?message) AS ?messages) WHERE {
-  ?message snvoc:hasCreator <https://solidbench.linkeddatafragments.org/pods/00000006597069767117/profile/card#me>;
-    snvoc:hasTag ?tag.
-  ?tag foaf:name ?tagName.
-}
-GROUP BY ?tagName
-ORDER BY DESC (?messages)`
-
-
-const discover_4_5 = `PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX snvoc: <https://solidbench.linkeddatafragments.org/www.ldbc.eu/ldbc_socialnet/1.0/vocabulary/>
-PREFIX foaf: <http://xmlns.com/foaf/0.1/>
-SELECT ?locationName (COUNT(?message) AS ?messages) WHERE {
-  ?message snvoc:hasCreator <https://solidbench.linkeddatafragments.org/pods/00000006597069767117/profile/card#me>;
-    rdf:type snvoc:Comment;
-    snvoc:isLocatedIn ?location.
-  ?location foaf:name ?locationName.
-}
-GROUP BY ?locationName
-ORDER BY DESC (?messages)`
-const runner = new LinkTraversalPerformanceMetrics();
-runner.createEngine().then(async () => {
-    const queryOutput = await runner.engine.query(query, {idp: "void", 
-    "@comunica/bus-rdf-resolve-hypermedia-links:annotateSources": "graph", unionDefaultGraph: true, lenient: true, constructTopology: true});
-    const bindingStream = await queryOutput.execute();
-    const mediatorConstructTraversedTopology = await queryOutput.context.get(KeysTraversedTopology.mediatorConstructTraversedTopology);
-    // This returns an object with the topology object in it, this will contain the topology after executing the query
-    const constuctTopologyOutput = await mediatorConstructTraversedTopology.mediate(
-      {
-        parentUrl: "",
-        links: [],
-        metadata: [{}],
-        setDereferenced: false,
-        context: new ActionContext()
-    });
-    // Execute entire query, should be a promise with timeout though
-    const bindings: Bindings[] = await bindingStream.toArray();
-    const contributingDocuments = runner.extractContributingDocuments(bindings);
-    // Simulate a result that needs 2 documents.
-    contributingDocuments[0].push(`https://solidbench.linkeddatafragments.org/pods/00000000000000000933/posts/2010-08-06`);
-    console.log(contributingDocuments);
-    console.log(constuctTopologyOutput.topology);
-    const metricUnweightedAll = await runner.runMetricAll(
-      constuctTopologyOutput.topology,
-      contributingDocuments.flat(), 
-      constuctTopologyOutput.topology.getTraversalOrderEdges(),
-      "solver/full_topology/traversalTopology.stp", 
-      "solver/scipstp",
-      "solver/full_topology/write.set",
-      constuctTopologyOutput.topology.nodeToIndex,
-      "unweighted"
-    );
-
-    const k = 3
-
-    const test = await runner.runMetricFirstK(
-      k, 
-      constuctTopologyOutput.topology, 
-      contributingDocuments,
-      constuctTopologyOutput.topology.getTraversalOrderEdges(), 
-      constuctTopologyOutput.topology.nodeToIndex,
-      "solver/reduced_topology/traversalTopologyReduced.stp", 
-      "solver/scipstp",
-      "solver/reduced_topology/write.set",
-      "solver/full_topology/traversalTopology.stp", 
-      "solver/scipstp",
-      "solver/full_topology/write.set",
-      "documentSize"
-    );
-    console.log(`Metric unweighted first ${k}: ${test}`);
-
-    const metricHTTPWeightedAll = await runner.runMetricAll(
-      constuctTopologyOutput.topology,
-      contributingDocuments.flat(), 
-      constuctTopologyOutput.topology.traversalOrder,
-      "solver/full_topology/traversalTopology.stp", 
-      "solver/scipstp",
-      "solver/full_topology/write.set",
-      constuctTopologyOutput.topology.nodeToIndex,
-      "httpRequestTime"
-    );
-
-    const metricDocumentSizeWeightedAll= await runner.runMetricAll(
-      constuctTopologyOutput.topology,
-      contributingDocuments.flat(), 
-      constuctTopologyOutput.topology.traversalOrder,
-      "solver/full_topology/traversalTopology.stp", 
-      "solver/scipstp",
-      "solver/full_topology/write.set",
-      constuctTopologyOutput.topology.nodeToIndex,
-      "documentSize"
-    );
+// const discover_3_5 = `PREFIX snvoc: <https://solidbench.linkeddatafragments.org/www.ldbc.eu/ldbc_socialnet/1.0/vocabulary/>
+// PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+// SELECT ?tagName (COUNT(?message) AS ?messages) WHERE {
+//   ?message snvoc:hasCreator <https://solidbench.linkeddatafragments.org/pods/00000006597069767117/profile/card#me>;
+//     snvoc:hasTag ?tag.
+//   ?tag foaf:name ?tagName.
+// }
+// GROUP BY ?tagName
+// ORDER BY DESC (?messages)`
 
 
+// const discover_4_5 = `PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+// PREFIX snvoc: <https://solidbench.linkeddatafragments.org/www.ldbc.eu/ldbc_socialnet/1.0/vocabulary/>
+// PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+// SELECT ?locationName (COUNT(?message) AS ?messages) WHERE {
+//   ?message snvoc:hasCreator <https://solidbench.linkeddatafragments.org/pods/00000006597069767117/profile/card#me>;
+//     rdf:type snvoc:Comment;
+//     snvoc:isLocatedIn ?location.
+//   ?location foaf:name ?locationName.
+// }
+// GROUP BY ?locationName
+// ORDER BY DESC (?messages)`
+// const runner = new LinkTraversalPerformanceMetrics();
+// runner.createEngine().then(async () => {
+//     const queryOutput = await runner.engine.query(query, {idp: "void", 
+//     "@comunica/bus-rdf-resolve-hypermedia-links:annotateSources": "graph", unionDefaultGraph: true, lenient: true, constructTopology: true});
+//     const bindingStream = await queryOutput.execute();
+//     const mediatorConstructTraversedTopology = await queryOutput.context.get(KeysTraversedTopology.mediatorConstructTraversedTopology);
+//     // This returns an object with the topology object in it, this will contain the topology after executing the query
+//     const constuctTopologyOutput = await mediatorConstructTraversedTopology.mediate(
+//       {
+//         parentUrl: "",
+//         links: [],
+//         metadata: [{}],
+//         setDereferenced: false,
+//         context: new ActionContext()
+//     });
+//     // Execute entire query, should be a promise with timeout though
+//     const bindings: Bindings[] = await bindingStream.toArray();
+//     const contributingDocuments = runner.extractContributingDocuments(bindings);
+//     // Simulate a result that needs 2 documents.
+//     contributingDocuments[0].push(`https://solidbench.linkeddatafragments.org/pods/00000000000000000933/posts/2010-08-06`);
+//     console.log(contributingDocuments);
+//     console.log(constuctTopologyOutput.topology);
+//     const metricUnweightedAll = await runner.runMetricAll(
+//       constuctTopologyOutput.topology,
+//       contributingDocuments.flat(), 
+//       constuctTopologyOutput.topology.getTraversalOrderEdges(),
+//       "solver/full_topology/traversalTopology.stp", 
+//       "solver/scipstp",
+//       "solver/full_topology/write.set",
+//       constuctTopologyOutput.topology.nodeToIndex,
+//       "unweighted"
+//     );
 
-    // TODO: Create one function that can run the different metric types by choosing a parameter value .
-    // TODO: First $k$ results time for different metric weights .
-    // TODO: Think about when multiple documents are needed for 1 result, we don't deal with that properly now as each document will be treated 
-    // as seperate result
-    // TODO: Metric needs to be: we follow this many times more links than needed (simple division tbh) .
+//     const k = 3
 
-    // TODO: Add timeout for queries
-    // TODO: Handle queries that have no results, can we use unfragmented dataset?
-    // TODO: Create big experiment runner for all queries
+//     const test = await runner.runMetricFirstK(
+//       k, 
+//       constuctTopologyOutput.topology, 
+//       contributingDocuments,
+//       constuctTopologyOutput.topology.getTraversalOrderEdges(), 
+//       constuctTopologyOutput.topology.nodeToIndex,
+//       "solver/reduced_topology/traversalTopologyReduced.stp", 
+//       "solver/scipstp",
+//       "solver/reduced_topology/write.set",
+//       "solver/full_topology/traversalTopology.stp", 
+//       "solver/scipstp",
+//       "solver/full_topology/write.set",
+//       "documentSize"
+//     );
+//     console.log(`Metric unweighted first ${k}: ${test}`);
 
-    // ----
-    // TODO: Implement algorithms Olaf
-});
+//     const metricHTTPWeightedAll = await runner.runMetricAll(
+//       constuctTopologyOutput.topology,
+//       contributingDocuments.flat(), 
+//       constuctTopologyOutput.topology.traversalOrder,
+//       "solver/full_topology/traversalTopology.stp", 
+//       "solver/scipstp",
+//       "solver/full_topology/write.set",
+//       constuctTopologyOutput.topology.nodeToIndex,
+//       "httpRequestTime"
+//     );
+
+//     const metricDocumentSizeWeightedAll= await runner.runMetricAll(
+//       constuctTopologyOutput.topology,
+//       contributingDocuments.flat(), 
+//       constuctTopologyOutput.topology.traversalOrder,
+//       "solver/full_topology/traversalTopology.stp", 
+//       "solver/scipstp",
+//       "solver/full_topology/write.set",
+//       constuctTopologyOutput.topology.nodeToIndex,
+//       "documentSize"
+//     );
+
+
+
+//     // TODO: Create one function that can run the different metric types by choosing a parameter value .
+//     // TODO: First $k$ results time for different metric weights .
+//     // TODO: Think about when multiple documents are needed for 1 result, we don't deal with that properly now as each document will be treated 
+//     // as seperate result
+//     // TODO: Metric needs to be: we follow this many times more links than needed (simple division tbh) .
+
+//     // TODO: Add timeout for queries
+//     // TODO: Handle queries that have no results, can we use unfragmented dataset?
+//     // TODO: Create big experiment runner for all queries
+
+//     // ----
+//     // TODO: Implement algorithms Olaf
+// });
 
 export interface IOptimalPathFirstK extends ISolverOutput{
   nodeReducedToFull: Record<number, number>;

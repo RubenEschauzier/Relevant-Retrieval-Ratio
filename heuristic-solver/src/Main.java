@@ -600,22 +600,13 @@ public class Main {
 		System.out.println("# Name OptimalCost NbNodes NbArcs NbTerminals MaximumArcCost AlgorithmAnswer AlgorithRunningTime");
 
 		File f = new File(steinLibMainDir + steinLibSubDir);
-		System.out.println(steinLibMainDir + steinLibSubDir);
 		String name = f.listFiles()[0].getName();
 		
 		name = name.substring(0, name.length() - 3);
 		SteinLibInstancesGroups slig = SteinLibInstancesGroups.getGroup(name);
 
-		String path2 = slig.getResultFileName(); // File containing for each
-		String resultPathHardCoded = "solver-output/B.results";
-		System.out.println(steinLibMainDir + resultPathHardCoded);
-
-		// instance the optimal solution cost
-		// System.out.println(steinLibMainDir
-		// 		+ steinLibSubDir);
-
 		STPDirectedGenerator gen = new STPDirectedGenerator(steinLibMainDir
-				+ steinLibSubDir, steinLibMainDir + resultPathHardCoded);
+				+ steinLibSubDir, null);
 
 		gen.incrIndex(nbInstancesIgnored);
 		alg.setCheckFeasibility(false);
