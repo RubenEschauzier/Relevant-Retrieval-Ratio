@@ -1,12 +1,11 @@
 import { BindingsStream } from "@comunica/types";
 import { Bindings } from "@comunica/bindings-factory";
 import { KeysBindingContext } from "@comunica/context-entries";
-import { ActionContext } from "@comunica/core";
-import { KeysTraversedTopology } from "@comunica/context-entries-link-traversal";
 import { TraversedGraph } from "@comunica/actor-construct-traversed-topology-url-to-graph"
 import { ISolverOutput, SolverRunner } from "../solver-runner/SolverRunner";
 import { MetricOptimalTraversalUnweighted } from "../metric-optimal-traversal-unweighted/MetricOptimalTraversalUnweighted";
 import * as fs from 'fs';
+import * as path from 'path';
 
 // Steiner tree solver: https://steinlib.zib.de/format.php   -------- https://scipjack.zib.de/#download
 // https://github.com/suhastheju/steiner-edge-linear 
@@ -152,6 +151,9 @@ export class LinkTraversalPerformanceMetrics{
       return optimalPathOutput;
     }
     
+    public async getOptimalPathFirstKTest(){
+
+    }
     /**
      * Calculates the optimal path to take to traverse all terminal nodes in the graph. Note this implementation uses a heuristic
      * It is not guaranteed to be optimal.
@@ -166,9 +168,66 @@ export class LinkTraversalPerformanceMetrics{
       relevantDocuments: number[][],
       engineTraversalPath: number[][],
       rootDocuments: number[],
-      solverInputFileLocation: string
+      numNodes: number,
+      solverInputFileLocation: string,
+      
     ){
+      // Write traversal information to .stp file that serves as input to steiner tree solvers. Such format is used by various
+      // solvers. 
+      this.solverRunner.writeDirectedTopologyToFileTest(
+        edgeList,
+        relevantDocuments,
+        rootDocuments, 
+        numNodes,
+        solverInputFileLocation
+      );
+      const splitPath = solverInputFileLocation.split('/');
 
+      // We get sub-directory that the directed topology file is saved in
+      const inputDirectoryForSolver = splitPath.slice(splitPath.length - 2, splitPath.length - 1) + "/";
+      // Get absolute path to parent-directory of directory topology file is saved in
+      const parentDirectoryInputDirectory = splitPath.slice(0, splitPath.length - 2).join('/')+"/";
+      // Absolute path to the directory for code of the heuristic solver
+      const heuristicSolverPath = path.join(__dirname, "..", "..", "heuristic-solver", "src");
+
+      const stdout = await this.solverRunner.runSolverHeuristic(
+        heuristicSolverPath, 
+        parentDirectoryInputDirectory, 
+        inputDirectoryForSolver
+      );
+
+      const solverOutput = this.solverRunner.parseSolverResultHeuristic(stdout);
+      // Attach the cost back to the solution, as the solver doesn't report it
+      const solverOutputWithCost = this.attachCostToSolverOutput(solverOutput, edgeList);
+
+      return solverOutputWithCost
+    }
+
+    /**
+    * Re-attaches cost to solver output and calculates total path cost. Returns the changed object
+    * @param optimizerOutput 
+    * @param edgeList 
+    * @returns 
+    */
+    public attachCostToSolverOutput(optimizerOutput: ISolverOutput, edgeList: number[][]){
+      const solverOutputWithCost: ISolverOutput = {nEdges: optimizerOutput.nEdges, edges: [], optimalCost: 0}
+      const newEdges = [];
+      for (let i = 0; i < optimizerOutput.edges.length; i++){
+        const optimalEdge = optimizerOutput.edges[i];
+        for (let j = 0; j < edgeList.length; j++){
+          const edge = edgeList[j];
+          // Check if we have correct entry in edge list
+          if (optimalEdge[0] === edge[0] && optimalEdge[1] === edge[1]){
+            // Add cost to solution edge
+            const newEdgeWithCost = [...optimalEdge, edge[2]];
+            newEdges.push(newEdgeWithCost);
+            // Keep track of total solution cost
+            solverOutputWithCost.optimalCost += edge[2];
+          }
+        }
+      }
+      solverOutputWithCost.edges = newEdges;
+      return solverOutputWithCost
     }
 
     public async getOptimalPathAll(trackedTopology: TraversedGraph, 
@@ -202,10 +261,46 @@ export class LinkTraversalPerformanceMetrics{
       relevantDocuments: number[][],
       engineTraversalPath: number[][],
       rootDocuments: number[],
+      numNodes: number,
       solverInputFileLocation: string
     ){
-      const shortestPath = await this.getOptimalPathAllTest()
+      const shortestPath = await this.getOptimalPathAllTest(
+        edgeList,
+        relevantDocuments,
+        engineTraversalPath,
+        rootDocuments,
+        numNodes,
+        solverInputFileLocation
+      )
+
+      return this.metricOptimalPathUnweighted.getMetricRatioOptimalVsTraversed(
+        shortestPath,
+         relevantDocuments.flat(), 
+         engineTraversalPath
+      );
     }
+
+    public async runMetricFirstKTest(
+      k: number,
+      edgeList: number[][],
+      relevantDocuments: number[][],
+      engineTraversalPath: number[][],
+      rootDocuments: number[],
+      numNodes: number,
+      solverInputFileLocation: string
+    ){
+      const shortestPathAll = await this.getOptimalPathAllTest(
+        edgeList,
+        relevantDocuments,
+        engineTraversalPath,
+        rootDocuments,
+        numNodes,
+        solverInputFileLocation
+      )
+
+    }
+
+
     public async runMetricAll(      
       topology: TraversedGraph, 
       relevantDocuments: string[],
@@ -352,28 +447,6 @@ export class LinkTraversalPerformanceMetrics{
       
     //   return metricFirstK;
     // }
-
-    public async consumeStream(bindingStream: BindingsStream, dataProcessingFunction: Function){
-        let numResults = 0;
-        const bindings: any[] = [];
-        const processingResults: any[] = []
-        const finishedReading: Promise<any[]> = new Promise((resolve, reject) => {
-            bindingStream.on('data', (res: any) => {
-                const processingOutput = dataProcessingFunction(res);
-                processingResults.push(processingOutput)
-                numResults += 1;
-                console.log(`Here is data: ${res}`)
-                console.log(typeof(res))
-            });
-            bindingStream.on('end', () =>{
-                resolve(processingResults)
-            });
-            bindingStream.on('error', () =>{
-                reject(true)
-            });
-        });
-        return finishedReading
-   }
 }
 
 

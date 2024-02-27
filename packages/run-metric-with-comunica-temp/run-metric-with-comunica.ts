@@ -59,12 +59,13 @@ export class runWithComunica{
 
       // Convert string representations of relevant documents to one indexed list
 
-      const relevantDocsOneIndexed = contributingDocuments.map(x=>x.map(y=>trackedTopology.getNodeToIndexes()[y]));
+      const relevantDocsOneIndexed = contributingDocuments.map(x=>x.map(y=>trackedTopology.getNodeToIndexes()[y]+1));
 
       const traversalPath = trackedTopology.getTraversalOrderEdges();
       const traversalPathOneIndexed = this.convertZeroIndexedToOneIndexed(traversalPath);
     
       const nodeMetaData = trackedTopology.getMetaDataAll();
+
       const roots = [];
       // Iterate over zero indexed metadata to find nodes with no parent node to find root nodes
       for (let k = 0; k < nodeMetaData.length; k++){
@@ -78,6 +79,7 @@ export class runWithComunica{
         edgeList: edgeList, 
         contributingNodes: relevantDocsOneIndexed, 
         traversedPath: traversalPathOneIndexed, 
+        numNodes: nodeMetaData.length,
         roots: roots
       };
     }
@@ -164,13 +166,16 @@ comunicaRunner.createEngine().then(async () => {
   const contributingDocuments = comunicaRunner.extractContributingDocuments(bindings);
   // Simulate a result that needs 2 documents.
   contributingDocuments[0].push(`https://solidbench.linkeddatafragments.org/pods/00000000000000000933/posts/2010-08-06`);
-  const metricInput = comunicaRunner.prepareMetricInput(constuctTopologyOutput.topology, contributingDocuments, "unweighted");
-  metric.runMetricAllTest(
-    metricInput.edgeList, 
-    metricInput.contributingNodes, 
-    metricInput.traversedPath, 
-    metricInput.roots
+  const metricInputUnweighted = comunicaRunner.prepareMetricInput(constuctTopologyOutput.topology, contributingDocuments, "unweighted");
+  const metricAllUnweighted = await metric.runMetricAllTest(
+    metricInputUnweighted.edgeList, 
+    metricInputUnweighted.contributingNodes, 
+    metricInputUnweighted.traversedPath, 
+    metricInputUnweighted.roots,
+    metricInputUnweighted.numNodes,
+    "/home/reschauz/projects/experiments-comunica/comunica-experiment-performance-metric/heuristic-solver/input/full_topology/input-file.stp"
   );
+  console.log(`Metric unweighted all documents: ${metricAllUnweighted}`);
   // const edgeList = constuctTopologyOutput.topology.getEdgeList();
   // console.log(edgeList);
 
@@ -293,6 +298,9 @@ export interface IMetricInput {
 
   // Engine traversal path
   traversedPath: number[][];
+
+  // number of nodes in topology
+  numNodes: number;
 
   // 1 indexed roots
   roots: number[];

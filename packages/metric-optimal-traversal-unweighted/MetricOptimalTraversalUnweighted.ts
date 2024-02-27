@@ -1,3 +1,5 @@
+import { ISolverOutput } from "../solver-runner/SolverRunner";
+
 class MetricOptimalTraversalUnweighted{
     public constructor(){
     }
@@ -27,6 +29,19 @@ class MetricOptimalTraversalUnweighted{
         }
         // The metric simply measures how many links more the engine follows than the optimal path
         return engineTraversalPathCost / optimalPathCost;
+    }
+    /**
+     * Function that calculates the ratio between optimal cost and traversed cost for a set of documents needed to obtain the results
+     * @param k 
+     * @param solverOutput 
+     * @param relevantDocumentNodeIds 
+     * @param engineTraversalPath 
+     */
+    public getMetricRatioOptimalVsTraversed(solverOutput: ISolverOutput, relevantDocumentNodeIds: number[], engineTraversalPath: number[][]){
+        const relevantEngineTraversalPath = this.getTraversalPointKRelevantDocumentsVisited(relevantDocumentNodeIds.length, 
+            relevantDocumentNodeIds, engineTraversalPath);
+        const enginePathCost = relevantEngineTraversalPath.reduce((accumulator, currentValue) => accumulator + currentValue[2], 0);
+        return enginePathCost / solverOutput.optimalCost;
     }
 
     /**

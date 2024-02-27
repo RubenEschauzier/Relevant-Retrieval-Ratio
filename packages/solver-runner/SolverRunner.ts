@@ -75,11 +75,20 @@ class SolverRunner{
         fs.writeFileSync(outputPath, graphString);
       }
 
-      public writeDirectedTopologyToFile(trackedTopology: TraversedGraph, edgeList: number[][], relevantDocuments: string[], outputPath: string){
-        // const edgeList = trackedTopology.getEdgeList();
-        const metadata = trackedTopology.getMetaDataAll();
-        const nodeToIndex = trackedTopology.getNodeToIndexes();
-        edgeList.sort(function(a,b){return a[1] - b[1];});
+      public writeDirectedTopologyToFileTest(
+        edgeList: number[][],
+         relevantDocuments: number[][], 
+         roots: number[], 
+         numNodes: number, 
+         outputPath: string
+        ){
+        edgeList.sort((a,b) => a[0] - b[0]);
+        const flatRelevantDocuments = relevantDocuments.flat();
+        // Add both roots and relevant documents to one set, to account for a relevant document being a root
+        const terminals = new Set([...flatRelevantDocuments, ...roots]);
+        const terminalsArray = Array.from(terminals);
+        terminalsArray.sort((a, b) => a - b);
+
         
         let graphString = `33D32945 STP File, STP Format Version 1.0\n`;
         graphString += `SECTION Comment
@@ -88,44 +97,24 @@ class SolverRunner{
         Problem "SAP"
         Remark  "Traversed topology during Link Traversal-based Query Processing"
         END\n\n`;
-        graphString += `SECTION Graph \nNodes ${metadata.length}\nEdges ${edgeList.length}\n`;
+        graphString += `SECTION Graph \nNodes ${numNodes}\nArcs ${edgeList.length}\n`;
         // Iterate over the edges and add to string
         for (let i=0; i < edgeList.length; i++){
-          const antiParallelEdge = [edgeList[i][1], edgeList[i][0], edgeList[i][2]];
           // If the graph contains an anti parallel edge, make weight of fourth number 1
-          let edgeString = "";
-          if (edgeList.includes(antiParallelEdge)){
-            edgeString = `A ${edgeList[i][0]+1} ${edgeList[i][1]+1} ${edgeList[i][2]} 1\n`
-          }
-          else{
-            edgeString = `A ${edgeList[i][0]+1} ${edgeList[i][1]+1} ${edgeList[i][2]} 200000\n`;
-          }
+          const edgeString = `A ${edgeList[i][0]} ${edgeList[i][1]} ${edgeList[i][2]}\n`
           graphString += edgeString;
         }
         graphString += "END\n\n";
-        let numRoots = 0;
-        for (let k = 0; k < metadata.length; k++){
-          if (!metadata[k].hasParent){
-            numRoots += 1;
-          }
-        }
   
         // Add terminals (contributing documents)
-        graphString += `SECTION Terminals\nTerminals ${relevantDocuments.length + numRoots}\n`;
+        graphString += `SECTION Terminals\nTerminals ${terminalsArray.length}\n`;
         // All non-parent nodes are root nodes in this problem.
-        for (let k = 0; k < metadata.length; k++){
-          if (!metadata[k].hasParent){
-            graphString += `Root ${k+1}\n`
-          }
+        for (let k = 0; k < roots.length; k++){
+          graphString += `Root ${roots[k]}\n`
         }
-        for (let k = 0; k < metadata.length; k++){
-          if (!metadata[k].hasParent){
-            graphString += `T ${k+1}\n`
-          }
-        }
-        for (let j = 0; j < relevantDocuments.length; j++){
-          const terminalIndex = nodeToIndex[relevantDocuments[j]] + 1;
-          graphString += `T ${terminalIndex}\n`
+        for (let k = 0; k < terminalsArray.length; k++){
+          graphString += `T ${terminalsArray[k]}\n`
+          
         }
         graphString += `END\n\nEOF`
         fs.writeFileSync(outputPath, graphString);
