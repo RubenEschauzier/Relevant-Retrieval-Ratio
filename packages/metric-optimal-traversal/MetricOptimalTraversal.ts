@@ -1,6 +1,6 @@
 import { ISolverOutput } from "../solver-runner/SolverRunner";
 
-class MetricOptimalTraversalUnweighted{    
+export class MetricOptimalTraversal{    
     /**
      * Function that calculates the ratio between optimal cost and traversed cost for a set of documents needed to obtain the 
      * first @param k results.
@@ -72,5 +72,3 @@ class MetricOptimalTraversalUnweighted{
         return traversalUntillAllVisited;
     }
 }
-
-export { MetricOptimalTraversalUnweighted }

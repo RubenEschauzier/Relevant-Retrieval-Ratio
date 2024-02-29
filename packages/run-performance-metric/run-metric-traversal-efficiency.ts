@@ -1,5 +1,5 @@
 import { ISolverOutput, SolverRunner } from "../solver-runner/SolverRunner";
-import { MetricOptimalTraversalUnweighted } from "../metric-optimal-traversal-unweighted/MetricOptimalTraversalUnweighted";
+import { MetricOptimalTraversal } from "../metric-optimal-traversal/MetricOptimalTraversal";
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -7,24 +7,12 @@ export class LinkTraversalPerformanceMetrics{
     public binomialLookUp: number[];
     public solverRunner: SolverRunner;
 
-    public metricOptimalPathUnweighted: MetricOptimalTraversalUnweighted;
+    public metricOptimalPathUnweighted: MetricOptimalTraversal;
 
     public constructor(){
       this.binomialLookUp = this.preComputeLookUpTable();
       this.solverRunner = new SolverRunner();
-      this.metricOptimalPathUnweighted = new MetricOptimalTraversalUnweighted();
-    }
-
-    public readOutputDirFromSettingFile(settingFileLocation: string){
-      const data = fs.readFileSync(settingFileLocation, 'utf-8');
-      const lineList = data.split("\n");
-      for (const line of lineList){
-        if (line.startsWith("stp/logfile")){
-          const outputLocation = line.match(/"([^"]+)"/)![1];
-          return outputLocation
-        }
-      }
-      return "NOFILEFOUND";
+      this.metricOptimalPathUnweighted = new MetricOptimalTraversal();
     }
 
     public getAllValidCombinations(contributingDocuments: number[][], numResults: number): number[][][] {
