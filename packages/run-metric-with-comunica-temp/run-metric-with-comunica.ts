@@ -4,18 +4,12 @@ import { KeysBindingContext } from "@comunica/context-entries";
 import { ActionContext } from "@comunica/core";
 import { KeysTraversedTopology } from "@comunica/context-entries-link-traversal";
 import { TraversedGraph } from "@comunica/actor-construct-traversed-topology-url-to-graph"
-import { ISolverOutput, SolverRunner } from "../solver-runner/SolverRunner";
-import { MetricOptimalTraversalUnweighted } from "../metric-optimal-traversal-unweighted/MetricOptimalTraversalUnweighted";
-import * as fs from 'fs';
-import {LinkTraversalPerformanceMetrics} from "../run-performance-metric/run-metric-traversal-efficiency"
+import {LinkTraversalPerformanceMetrics, topologyType, IMetricInput} from "../run-performance-metric/run-metric-traversal-efficiency"
 
 export class runWithComunica{
     public engine: any;
     public queryEngine: any;
     public binomialLookUp: number[];
-    public solverRunner: SolverRunner;
-
-    public metricOptimalPathUnweighted: MetricOptimalTraversalUnweighted;
 
     public constructor(){
       this.queryEngine = require("@comunica/query-sparql-link-traversal-solid").QueryEngine;
@@ -136,6 +130,7 @@ SELECT ?locationName (COUNT(?message) AS ?messages) WHERE {
 }
 GROUP BY ?locationName
 ORDER BY DESC (?messages)`
+
 const comunicaRunner = new runWithComunica();
 const metric = new LinkTraversalPerformanceMetrics();
 comunicaRunner.createEngine().then(async () => {
@@ -166,8 +161,18 @@ comunicaRunner.createEngine().then(async () => {
   const contributingDocuments = comunicaRunner.extractContributingDocuments(bindings);
   // Simulate a result that needs 2 documents.
   contributingDocuments[0].push(`https://solidbench.linkeddatafragments.org/pods/00000000000000000933/posts/2010-08-06`);
-  const metricInputUnweighted = comunicaRunner.prepareMetricInput(constuctTopologyOutput.topology, contributingDocuments, "unweighted");
-  const metricAllUnweighted = await metric.runMetricAllTest(
+
+  const metricInputUnweighted = comunicaRunner.prepareMetricInput(
+    constuctTopologyOutput.topology, 
+    contributingDocuments, 
+    "unweighted");
+
+  const metricInputHttpWeighted = comunicaRunner.prepareMetricInput(
+    constuctTopologyOutput.topology, 
+    contributingDocuments, 
+    "httpRequestTime");
+
+  const metricAllUnweighted = await metric.runMetricAll(
     metricInputUnweighted.edgeList, 
     metricInputUnweighted.contributingNodes, 
     metricInputUnweighted.traversedPath, 
@@ -175,136 +180,19 @@ comunicaRunner.createEngine().then(async () => {
     metricInputUnweighted.numNodes,
     "/home/reschauz/projects/experiments-comunica/comunica-experiment-performance-metric/heuristic-solver/input/full_topology/input-file.stp"
   );
+
+  const k = 3;
+  const metricFirstKUnweighted = await metric.runMetricFirstK(
+    k,
+    metricInputUnweighted.edgeList, 
+    metricInputUnweighted.contributingNodes, 
+    metricInputUnweighted.traversedPath, 
+    metricInputUnweighted.roots,
+    metricInputUnweighted.numNodes,
+    "/home/reschauz/projects/experiments-comunica/comunica-experiment-performance-metric/heuristic-solver/input/full_topology/input-file.stp",
+    "full"
+  );
+
   console.log(`Metric unweighted all documents: ${metricAllUnweighted}`);
-  // const edgeList = constuctTopologyOutput.topology.getEdgeList();
-  // console.log(edgeList);
-
-  // const metricUnweightedAll = await metric.runMetricAll(
-  //   constuctTopologyOutput.topology,
-  //   contributingDocuments.flat(), 
-  //   constuctTopologyOutput.topology.getTraversalOrderEdges(),
-  //   "solver/full_topology/traversalTopology.stp", 
-  //   "solver/scipstp",
-  //   "solver/full_topology/write.set",
-  //   constuctTopologyOutput.topology.nodeToIndex,
-  //   "unweighted"
-  // );
-
-})
-// runner.createEngine().then(async () => {
-//     const queryOutput = await runner.engine.query(query, {idp: "void", 
-//     "@comunica/bus-rdf-resolve-hypermedia-links:annotateSources": "graph", unionDefaultGraph: true, lenient: true, constructTopology: true});
-//     const bindingStream = await queryOutput.execute();
-//     const mediatorConstructTraversedTopology = await queryOutput.context.get(KeysTraversedTopology.mediatorConstructTraversedTopology);
-//     // This returns an object with the topology object in it, this will contain the topology after executing the query
-//     const constuctTopologyOutput = await mediatorConstructTraversedTopology.mediate(
-//       {
-//         parentUrl: "",
-//         links: [],
-//         metadata: [{}],
-//         setDereferenced: false,
-//         context: new ActionContext()
-//     });
-//     // Execute entire query, should be a promise with timeout though
-//     const bindings: Bindings[] = await bindingStream.toArray();
-//     const contributingDocuments = runner.extractContributingDocuments(bindings);
-//     // Simulate a result that needs 2 documents.
-//     contributingDocuments[0].push(`https://solidbench.linkeddatafragments.org/pods/00000000000000000933/posts/2010-08-06`);
-
-
-
-
-
-//     console.log(contributingDocuments);
-//     console.log(constuctTopologyOutput.topology);
-//     const metricUnweightedAll = await runner.runMetricAll(
-//       constuctTopologyOutput.topology,
-//       contributingDocuments.flat(), 
-//       constuctTopologyOutput.topology.getTraversalOrderEdges(),
-//       "solver/full_topology/traversalTopology.stp", 
-//       "solver/scipstp",
-//       "solver/full_topology/write.set",
-//       constuctTopologyOutput.topology.nodeToIndex,
-//       "unweighted"
-//     );
-
-//     const k = 3
-
-//     const test = await runner.runMetricFirstK(
-//       k, 
-//       constuctTopologyOutput.topology, 
-//       contributingDocuments,
-//       constuctTopologyOutput.topology.getTraversalOrderEdges(), 
-//       constuctTopologyOutput.topology.nodeToIndex,
-//       "solver/reduced_topology/traversalTopologyReduced.stp", 
-//       "solver/scipstp",
-//       "solver/reduced_topology/write.set",
-//       "solver/full_topology/traversalTopology.stp", 
-//       "solver/scipstp",
-//       "solver/full_topology/write.set",
-//       "documentSize"
-//     );
-//     console.log(`Metric unweighted first ${k}: ${test}`);
-
-//     const metricHTTPWeightedAll = await runner.runMetricAll(
-//       constuctTopologyOutput.topology,
-//       contributingDocuments.flat(), 
-//       constuctTopologyOutput.topology.traversalOrder,
-//       "solver/full_topology/traversalTopology.stp", 
-//       "solver/scipstp",
-//       "solver/full_topology/write.set",
-//       constuctTopologyOutput.topology.nodeToIndex,
-//       "httpRequestTime"
-//     );
-
-//     const metricDocumentSizeWeightedAll= await runner.runMetricAll(
-//       constuctTopologyOutput.topology,
-//       contributingDocuments.flat(), 
-//       constuctTopologyOutput.topology.traversalOrder,
-//       "solver/full_topology/traversalTopology.stp", 
-//       "solver/scipstp",
-//       "solver/full_topology/write.set",
-//       constuctTopologyOutput.topology.nodeToIndex,
-//       "documentSize"
-//     );
-
-
-
-//     // TODO: Create one function that can run the different metric types by choosing a parameter value .
-//     // TODO: First $k$ results time for different metric weights .
-//     // TODO: Think about when multiple documents are needed for 1 result, we don't deal with that properly now as each document will be treated 
-//     // as seperate result
-//     // TODO: Metric needs to be: we follow this many times more links than needed (simple division tbh) .
-
-//     // TODO: Add timeout for queries
-//     // TODO: Handle queries that have no results, can we use unfragmented dataset?
-//     // TODO: Create big experiment runner for all queries
-
-//     // ----
-//     // TODO: Implement algorithms Olaf
-// });
-
-export interface IOptimalPathFirstK extends ISolverOutput{
-  nodeReducedToFull: Record<number, number>;
-}
-
-
-export interface IMetricInput {
-  // 1 indexed edge list
-  edgeList: number[][];
-
-  // 1 indexed contributing documents list
-  contributingNodes: number[][];
-
-  // Engine traversal path
-  traversedPath: number[][];
-
-  // number of nodes in topology
-  numNodes: number;
-
-  // 1 indexed roots
-  roots: number[];
-
-}
-
-export type topologyType = "unweighted" | "httpRequestTime" | "documentSize"
+  console.log(`Metric first ${k} unweighted: ${metricFirstKUnweighted}`);
+});
