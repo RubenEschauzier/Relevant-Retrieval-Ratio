@@ -4,7 +4,9 @@ import { KeysBindingContext } from "@comunica/context-entries";
 import { ActionContext } from "@comunica/core";
 import { KeysTraversedTopology } from "@comunica/context-entries-link-traversal";
 import { TraversedGraph } from "@comunica/actor-construct-traversed-topology-url-to-graph"
-import {LinkTraversalPerformanceMetrics, topologyType, IMetricInput} from "../run-performance-metric/run-metric-traversal-efficiency"
+import {LinkTraversalPerformanceMetrics, topologyType, IMetricInput, searchType} from "../run-performance-metric/run-metric-traversal-efficiency"
+import * as path from 'path';
+
 
 export class runWithComunica{
     public engine: any;
@@ -53,7 +55,7 @@ export class runWithComunica{
 
       // Convert string representations of relevant documents to one indexed list
 
-      const relevantDocsOneIndexed = contributingDocuments.map(x=>x.map(y=>trackedTopology.getNodeToIndexes()[y]+1));
+      const relevantDocsOneIndexed = contributingDocuments.map(x=>x.map(y=>trackedTopology.getNodeToIndex()[y]+1));
 
       const traversalPath = trackedTopology.getTraversalOrderEdges();
       const traversalPathOneIndexed = this.convertZeroIndexedToOneIndexed(traversalPath);
@@ -78,6 +80,71 @@ export class runWithComunica{
       };
     }
 
+    public getMetricAllQueries(queries: string[], metricType: topologyType, inputFileLocationBase: string){
+
+    }
+    public async getMetricInputOfQuery(query: string, metricType: topologyType){
+      const queryOutput = await comunicaRunner.engine.query(query, 
+        {
+        idp: "void", 
+        "@comunica/bus-rdf-resolve-hypermedia-links:annotateSources": "graph", 
+        unionDefaultGraph: true, 
+        lenient: true, 
+        constructTopology: true
+      });
+      const bindingStream = await queryOutput.execute();
+      const mediatorConstructTraversedTopology = await queryOutput.context.get(KeysTraversedTopology.mediatorConstructTraversedTopology);
+      // This returns an object with the topology object in it, this will contain the topology after executing the query
+      const constuctTopologyOutput = await mediatorConstructTraversedTopology.mediate(
+        {
+          parentUrl: "",
+          links: [],
+          metadata: [{}],
+          setDereferenced: false,
+          context: new ActionContext()
+      });
+      
+      // Execute entire query, should be a promise with timeout though
+      const bindings: Bindings[] = await bindingStream.toArray();
+      const numResults = bindings.length;
+
+      // This is tied to Comunica, for metric usage with other engine you have to implement this yourself (if the contributing
+      // documents are stored differently)
+      const contributingDocuments = comunicaRunner.extractContributingDocuments(bindings);
+    
+      const metricInput = comunicaRunner.prepareMetricInput(
+        constuctTopologyOutput.topology, 
+        contributingDocuments, 
+        metricType
+      );      
+    return metricInput;
+  }
+
+  public async calculateMetricAll(metricInput: IMetricInput, solverInputFileLocation: string){
+    const metricAll = await metric.runMetricAll(
+      metricInput.edgeList, 
+      metricInput.contributingNodes, 
+      metricInput.traversedPath, 
+      metricInput.roots,
+      metricInput.numNodes,
+      solverInputFileLocation
+    );
+    return metricAll;
+  }
+
+  public async calculateMetricFirstK(metricInput: IMetricInput, k: number, solverInputFileLocation: string, searchType: searchType){
+    const metricFirstK = await metric.runMetricFirstK(
+      k,
+      metricInput.edgeList, 
+      metricInput.contributingNodes, 
+      metricInput.traversedPath, 
+      metricInput.roots,
+      metricInput.numNodes,
+      solverInputFileLocation,
+      searchType
+    );
+    return metricFirstK
+  }
 
 }
 
@@ -90,6 +157,7 @@ SELECT ?messageId ?messageCreationDate ?messageContent WHERE {
     snvoc:creationDate ?messageCreationDate;
     snvoc:id ?messageId.
 } `;
+
 const discover_6_1 = `PREFIX snvoc: <https://solidbench.linkeddatafragments.org/www.ldbc.eu/ldbc_socialnet/1.0/vocabulary/>
 SELECT DISTINCT ?forumId ?forumTitle WHERE {
   ?message snvoc:hasCreator <https://solidbench.linkeddatafragments.org/pods/00000000000000000933/profile/card#me>.
@@ -134,6 +202,19 @@ ORDER BY DESC (?messages)`
 const comunicaRunner = new runWithComunica();
 const metric = new LinkTraversalPerformanceMetrics();
 comunicaRunner.createEngine().then(async () => {
+  // const solverFileLocationBase = path.join(__dirname, "..", "..", "heuristic-solver", "input", "full_topology");
+  // const metricInput: IMetricInput = await comunicaRunner.getMetricInputOfQuery(
+  //   query, 
+  //   "unweighted",
+  // );
+
+  // const metricUnweightedAll = await comunicaRunner.calculateMetricAll(metricInput, 
+  //   path.join(solverFileLocationBase, "input-file.stp"));
+  // const metricUnweightedFirstK = await comunicaRunner.calculateMetricFirstK(metricInput, 3, 
+  //   path.join(solverFileLocationBase, "input-file-1.stp"), "full");
+  // console.log(metricUnweightedAll);
+  // console.log(metricUnweightedFirstK);
+
   const queryOutput = await comunicaRunner.engine.query(query, 
     {
     idp: "void", 
@@ -153,6 +234,7 @@ comunicaRunner.createEngine().then(async () => {
       setDereferenced: false,
       context: new ActionContext()
   });
+  
   // Execute entire query, should be a promise with timeout though
   const bindings: Bindings[] = await bindingStream.toArray();
 
@@ -161,16 +243,13 @@ comunicaRunner.createEngine().then(async () => {
   const contributingDocuments = comunicaRunner.extractContributingDocuments(bindings);
   // Simulate a result that needs 2 documents.
   contributingDocuments[0].push(`https://solidbench.linkeddatafragments.org/pods/00000000000000000933/posts/2010-08-06`);
-
+  console.log(contributingDocuments)
   const metricInputUnweighted = comunicaRunner.prepareMetricInput(
     constuctTopologyOutput.topology, 
     contributingDocuments, 
-    "unweighted");
-
-  const metricInputHttpWeighted = comunicaRunner.prepareMetricInput(
-    constuctTopologyOutput.topology, 
-    contributingDocuments, 
-    "httpRequestTime");
+    "unweighted"
+  );
+  console.log(metricInputUnweighted)
 
   const metricAllUnweighted = await metric.runMetricAll(
     metricInputUnweighted.edgeList, 
