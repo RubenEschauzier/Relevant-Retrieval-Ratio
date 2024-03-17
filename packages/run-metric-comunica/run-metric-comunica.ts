@@ -6,6 +6,7 @@ import { KeysTraversedTopology } from "@comunica/context-entries-link-traversal"
 import { TraversedGraph } from "@comunica/actor-construct-traversed-topology-url-to-graph"
 import {LinkTraversalPerformanceMetrics, topologyType, IMetricInput, searchType} from "../run-performance-metric/run-metric-traversal-efficiency"
 import * as path from 'path';
+import * as fs from "fs";
 
 
 export class runWithComunica{
@@ -20,6 +21,16 @@ export class runWithComunica{
     public async createEngine(){
       // this.engine = await new this.queryEngineFactory().create({configPath: "configFiles/config-default-variable-priorities.json"});
       this.engine = new this.queryEngine();
+    }
+
+    public readQueries(location: string){
+      const queries: string[][] = []
+      for (const dir of fs.readdirSync(location)){
+        const data = fs.readFileSync(path.join(location, dir), 'utf8');
+        const queriesSplit = data.split('\n\n');
+        queries.push(queriesSplit);
+      }
+      return queries;
     }
 
     public extractContributingDocuments(bindings: Bindings[]){
@@ -80,10 +91,37 @@ export class runWithComunica{
       };
     }
 
-    public getMetricAllQueries(queries: string[], metricType: topologyType, inputFileLocationBase: string){
+    public async getMetricAllQueries(queries: string[], metricType: topologyType, solverFileLocationBase: string, kToTest: number[] = []){
+      const metricResults: IQueriesMetricResults[] = [];
+      for (let i = 0; i < queries.length; i++){
+        console.log(`Calculating metric ${i+1}/${queries.length}`);
+        const metricInput: IMetricInput = await comunicaRunner.getMetricInputOfQuery(
+          queries[i], 
+          metricType,
+        );
+        console.log(metricInput)
+      
+        const metricAll = await comunicaRunner.calculateMetricAll(metricInput, 
+          path.join(solverFileLocationBase, "input-file.stp"));
+        const metricsFirstK: Record<number, number> = {};
 
+        for (const k of kToTest){
+          // Check if we have enough results to calculate first k metric
+          if (metricInput.contributingNodes.length > k){
+            const metricUnweightedFirstK = await comunicaRunner.calculateMetricFirstK(metricInput, k, 
+              path.join(solverFileLocationBase, "input-file.stp"), "full"); 
+            metricsFirstK[k] = metricUnweightedFirstK;   
+          }
+        }
+        metricResults.push({query: queries[i], nResults: metricInput.contributingNodes.length, 
+          metricAll: metricAll, metricsFirstK: metricsFirstK}
+        );
+        const pathLog = path.join(__dirname, "..", "..", "log", "calculationLog.txt");
+        fs.writeFileSync(pathLog, JSON.stringify(metricResults));
+      }
     }
     public async getMetricInputOfQuery(query: string, metricType: topologyType){
+      console.log(query)
       const queryOutput = await comunicaRunner.engine.query(query, 
         {
         idp: "void", 
@@ -107,6 +145,7 @@ export class runWithComunica{
       // Execute entire query, should be a promise with timeout though
       const bindings: Bindings[] = await bindingStream.toArray();
       const numResults = bindings.length;
+      console.log(numResults);
 
       // This is tied to Comunica, for metric usage with other engine you have to implement this yourself (if the contributing
       // documents are stored differently)
@@ -158,51 +197,12 @@ SELECT ?messageId ?messageCreationDate ?messageContent WHERE {
     snvoc:id ?messageId.
 } `;
 
-const discover_6_1 = `PREFIX snvoc: <https://solidbench.linkeddatafragments.org/www.ldbc.eu/ldbc_socialnet/1.0/vocabulary/>
-SELECT DISTINCT ?forumId ?forumTitle WHERE {
-  ?message snvoc:hasCreator <https://solidbench.linkeddatafragments.org/pods/00000000000000000933/profile/card#me>.
-  ?forum snvoc:containerOf ?message;
-    snvoc:id ?forumId;
-    snvoc:title ?forumTitle.
-}`
-
-const discover_8_5 = `PREFIX snvoc: <https://solidbench.linkeddatafragments.org/www.ldbc.eu/ldbc_socialnet/1.0/vocabulary/>
-SELECT DISTINCT ?creator ?messageContent WHERE {
-  <https://solidbench.linkeddatafragments.org/pods/00000006597069767117/profile/card#me> snvoc:likes _:g_0.
-  _:g_0 (snvoc:hasPost|snvoc:hasComment) ?message.
-  ?message snvoc:hasCreator ?creator.
-  ?otherMessage snvoc:hasCreator ?creator;
-    snvoc:content ?messageContent.
-}
-LIMIT 10`
-
-const discover_3_5 = `PREFIX snvoc: <https://solidbench.linkeddatafragments.org/www.ldbc.eu/ldbc_socialnet/1.0/vocabulary/>
-PREFIX foaf: <http://xmlns.com/foaf/0.1/>
-SELECT ?tagName (COUNT(?message) AS ?messages) WHERE {
-  ?message snvoc:hasCreator <https://solidbench.linkeddatafragments.org/pods/00000006597069767117/profile/card#me>;
-    snvoc:hasTag ?tag.
-  ?tag foaf:name ?tagName.
-}
-GROUP BY ?tagName
-ORDER BY DESC (?messages)`
-
-
-const discover_4_5 = `PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX snvoc: <https://solidbench.linkeddatafragments.org/www.ldbc.eu/ldbc_socialnet/1.0/vocabulary/>
-PREFIX foaf: <http://xmlns.com/foaf/0.1/>
-SELECT ?locationName (COUNT(?message) AS ?messages) WHERE {
-  ?message snvoc:hasCreator <https://solidbench.linkeddatafragments.org/pods/00000006597069767117/profile/card#me>;
-    rdf:type snvoc:Comment;
-    snvoc:isLocatedIn ?location.
-  ?location foaf:name ?locationName.
-}
-GROUP BY ?locationName
-ORDER BY DESC (?messages)`
-
 const comunicaRunner = new runWithComunica();
 const metric = new LinkTraversalPerformanceMetrics();
 comunicaRunner.createEngine().then(async () => {
-  // const solverFileLocationBase = path.join(__dirname, "..", "..", "heuristic-solver", "input", "full_topology");
+  const solverFileLocationBase = path.join(__dirname, "..", "..", "heuristic-solver", "input", "full_topology");
+  const queryLocation = path.join(__dirname, "..", "..", "data", "queries");
+  const allQueries = comunicaRunner.readQueries(queryLocation).flat();
   // const metricInput: IMetricInput = await comunicaRunner.getMetricInputOfQuery(
   //   query, 
   //   "unweighted",
@@ -211,67 +211,24 @@ comunicaRunner.createEngine().then(async () => {
   // const metricUnweightedAll = await comunicaRunner.calculateMetricAll(metricInput, 
   //   path.join(solverFileLocationBase, "input-file.stp"));
   // const metricUnweightedFirstK = await comunicaRunner.calculateMetricFirstK(metricInput, 3, 
-  //   path.join(solverFileLocationBase, "input-file-1.stp"), "full");
+  //   path.join(solverFileLocationBase, "input-file.stp"), "full");
   // console.log(metricUnweightedAll);
   // console.log(metricUnweightedFirstK);
-
-  const queryOutput = await comunicaRunner.engine.query(query, 
-    {
-    idp: "void", 
-    "@comunica/bus-rdf-resolve-hypermedia-links:annotateSources": "graph", 
-    unionDefaultGraph: true, 
-    lenient: true, 
-    constructTopology: true
-  });
-  const bindingStream = await queryOutput.execute();
-  const mediatorConstructTraversedTopology = await queryOutput.context.get(KeysTraversedTopology.mediatorConstructTraversedTopology);
-  // This returns an object with the topology object in it, this will contain the topology after executing the query
-  const constuctTopologyOutput = await mediatorConstructTraversedTopology.mediate(
-    {
-      parentUrl: "",
-      links: [],
-      metadata: [{}],
-      setDereferenced: false,
-      context: new ActionContext()
-  });
-  
-  // Execute entire query, should be a promise with timeout though
-  const bindings: Bindings[] = await bindingStream.toArray();
-
-  // This is tied to Comunica, for metric usage with other engine you have to implement this yourself (if the contributing
-  // documents are stored differently)
-  const contributingDocuments = comunicaRunner.extractContributingDocuments(bindings);
-  // Simulate a result that needs 2 documents.
-  contributingDocuments[0].push(`https://solidbench.linkeddatafragments.org/pods/00000000000000000933/posts/2010-08-06`);
-  console.log(contributingDocuments)
-  const metricInputUnweighted = comunicaRunner.prepareMetricInput(
-    constuctTopologyOutput.topology, 
-    contributingDocuments, 
-    "unweighted"
-  );
-  console.log(metricInputUnweighted)
-
-  const metricAllUnweighted = await metric.runMetricAll(
-    metricInputUnweighted.edgeList, 
-    metricInputUnweighted.contributingNodes, 
-    metricInputUnweighted.traversedPath, 
-    metricInputUnweighted.roots,
-    metricInputUnweighted.numNodes,
-    "/home/reschauz/projects/experiments-comunica/comunica-experiment-performance-metric/heuristic-solver/input/full_topology/input-file.stp"
-  );
-
-  const k = 3;
-  const metricFirstKUnweighted = await metric.runMetricFirstK(
-    k,
-    metricInputUnweighted.edgeList, 
-    metricInputUnweighted.contributingNodes, 
-    metricInputUnweighted.traversedPath, 
-    metricInputUnweighted.roots,
-    metricInputUnweighted.numNodes,
-    "/home/reschauz/projects/experiments-comunica/comunica-experiment-performance-metric/heuristic-solver/input/full_topology/input-file.stp",
-    "full"
-  );
-
-  console.log(`Metric unweighted all documents: ${metricAllUnweighted}`);
-  console.log(`Metric first ${k} unweighted: ${metricFirstKUnweighted}`);
+  await comunicaRunner.getMetricAllQueries(allQueries, 'unweighted', solverFileLocationBase, [1, 2, 4]);
 });
+
+export interface IQueriesMetricResults{
+  query: string
+  /**
+   * Num results in query
+   */
+  nResults: number;
+  /**
+   * Metric for all results
+   */
+  metricAll: number
+  /**
+   * All results of first k result metric, key: k , value: metric
+   */
+  metricsFirstK: Record<number, number>
+}
