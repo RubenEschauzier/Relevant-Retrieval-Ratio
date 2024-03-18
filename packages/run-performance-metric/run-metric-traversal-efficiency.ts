@@ -94,7 +94,7 @@ export class LinkTraversalPerformanceMetrics{
   }
 
   /**
-   * 
+   * Get fastest path to first $k$ results by iterating over all combinations of results of size $k$ and calculating the steiner tree for these combinations
    * @param k 
    * @param edgeList 
    * @param relevantDocuments 
@@ -104,59 +104,6 @@ export class LinkTraversalPerformanceMetrics{
    * @param searchType "full" or "reduced". If the search for optimal first k is done over the full topology or only the reduced topology from the optimal path
    * for all results in the full topology. Full topology will require more resources, especially if the number of nodes is large
    */
-  public async getOptimalPathFirstK(
-    k: number,
-    edgeList: number[][],
-    relevantDocuments: number[][],
-    rootDocuments: number[],
-    numNodes: number,
-    optimalSolutionAll: ISolverOutput,
-    solverInputFileLocation: string,
-    searchType: searchType
-  ){
-    let optimalSolverOutput: ISolverOutput = {nEdges: Infinity, edges: [], optimalCost: Infinity};
-
-    const numValidCombinations = this.getNumValidCombinations(relevantDocuments.length, k);
-    const numNodesReducedProblem = new Set(optimalSolutionAll.edges.flat()).size;
-
-    if (numValidCombinations > 1000000){
-      console.warn(`INFO: Large number of combinations (${numValidCombinations}) to compute detected.`);
-    }
-
-    const combinations = this.getAllValidCombinations(relevantDocuments, k);
-
-    for (const combination of combinations){
-      // We cna decide to either do full search here or partial search
-      if (searchType === "full"){
-        const pathForCombination = await this.getOptimalPathAll(
-          edgeList, 
-          combination,
-          rootDocuments,
-          numNodes,
-          solverInputFileLocation
-        );
-        if (pathForCombination.optimalCost < optimalSolverOutput.optimalCost){
-          optimalSolverOutput = pathForCombination;
-        }
-      }
-      if (searchType === 'reduced'){
-        const pathForCombinationReduced = await this.getOptimalPathAll(
-          optimalSolutionAll.edges,
-          combination,
-          rootDocuments,
-          numNodesReducedProblem,
-          solverInputFileLocation
-        );
-
-        if (pathForCombinationReduced.optimalCost < optimalSolverOutput.optimalCost){
-          optimalSolverOutput = pathForCombinationReduced;
-        }
-      }
-    }
-    
-    return optimalSolverOutput;
-  }
-
   // NOTE WE SHOULD INCLUDE ABSOLUTELY FASTEST OPTIMAL PATH (WITHOUT WEIGHTS) AND OPTIMAL PATH WITH WEIGHTS FOR FULL METRIC
   public async getOptimalPathFirstKFast(
     k: number,
