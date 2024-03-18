@@ -140,3 +140,5 @@ dist
 !/solver/reduced_topology/write.set
 /data/*
 !/data/.keep
+/log/*
+!/log/.keep
