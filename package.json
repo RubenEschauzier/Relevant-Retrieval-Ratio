@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "dijkstrajs": "^1.0.3",
     "typescript": "^5.2.2"
   },
   "devDependencies": {

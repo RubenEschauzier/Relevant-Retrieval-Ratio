@@ -2,6 +2,7 @@ import { ISolverOutput, SolverRunner } from "../solver-runner/SolverRunner";
 import { MetricOptimalTraversal } from "../metric-optimal-traversal/MetricOptimalTraversal";
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from "url";
 
 export class LinkTraversalPerformanceMetrics{
   public binomialLookUp: number[];
@@ -13,6 +14,13 @@ export class LinkTraversalPerformanceMetrics{
     this.binomialLookUp = this.preComputeLookUpTable();
     this.solverRunner = new SolverRunner();
     this.metricOptimalPathUnweighted = new MetricOptimalTraversal();
+  }
+
+  public removeAllFilesInDir(directoryLocation: string){
+    const files = fs.readdirSync(directoryLocation);
+    for (const file of files) {
+      fs.unlinkSync(path.join(directoryLocation, file));
+    }
   }
 
   public getAllValidCombinations(contributingDocuments: number[][], numResults: number): number[][][] {
@@ -145,8 +153,87 @@ export class LinkTraversalPerformanceMetrics{
         }
       }
     }
+    
     return optimalSolverOutput;
   }
+
+  // NOTE WE SHOULD INCLUDE ABSOLUTELY FASTEST OPTIMAL PATH (WITHOUT WEIGHTS) AND OPTIMAL PATH WITH WEIGHTS FOR FULL METRIC
+  public async getOptimalPathFirstKFast(
+    k: number,
+    edgeList: number[][],
+    relevantDocuments: number[][],
+    rootDocuments: number[],
+    numNodes: number,
+    optimalSolutionAll: ISolverOutput,
+    solverInputFileLocation: string,
+    searchType: searchType
+  ){
+    let optimalSolverOutput: ISolverOutput = {nEdges: Infinity, edges: [], optimalCost: Infinity};
+
+    const numValidCombinations = this.getNumValidCombinations(relevantDocuments.length, k);
+    const numNodesReducedProblem = new Set(optimalSolutionAll.edges.flat()).size;
+
+    if (numValidCombinations > 1000000){
+      console.warn(`INFO: Large number of combinations (${numValidCombinations}) to compute detected.`);
+    }
+
+    const combinations = this.getAllValidCombinations(relevantDocuments, k);
+    
+    const splitPath = solverInputFileLocation.split('/');
+    // We get sub-directory that the directed topology file is saved in
+    const inputDirectoryForSolver = splitPath.slice(splitPath.length - 2, splitPath.length - 1) + "/";
+    // Get absolute path to parent-directory of directory topology file is saved in
+    const parentDirectoryInputDirectory = splitPath.slice(0, splitPath.length - 2).join('/')+"/";
+    // Absolute path to the directory for code of the heuristic solver
+    const heuristicSolverPath = path.join(__dirname, "..", "..", "heuristic-solver", "src");
+
+    // Write the problem files for all combinations, and after run solver on all files in directory
+    for (let i = 0; i < combinations.length; i++){
+      // We can decide to either do full search here or partial search
+      if (searchType === "full"){
+        this.solverRunner.writeDirectedTopologyToFile(
+          edgeList,
+          combinations[i],
+          rootDocuments, 
+          numNodes,
+          path.join(parentDirectoryInputDirectory, inputDirectoryForSolver, `input-file${i}.stp`) 
+        );
+      }
+      if (searchType === "reduced"){
+        this.solverRunner.writeDirectedTopologyToFile(
+          optimalSolutionAll.edges,
+          combinations[i],
+          rootDocuments,
+          numNodesReducedProblem,
+          path.join(parentDirectoryInputDirectory, inputDirectoryForSolver, `input-file${i}.stp`) 
+        );
+      } 
+    }
+    const stdout = await this.solverRunner.runSolverHeuristic(
+      heuristicSolverPath, 
+      parentDirectoryInputDirectory, 
+      inputDirectoryForSolver
+    );
+
+    const solverOutputs = this.solverRunner.parseAllSolverResultHeuristic(stdout);
+    const solverOutputsWithCost = solverOutputs.map(x => this.attachCostToSolverOutput(x, edgeList))
+
+    // TODO: CHANGE THIS TO CONSIDER BOTH UNWEIGHTED AND WEIGHTED BEST PATHS
+    let minCost = Infinity
+    let bestOutputIndex = -1;
+    for (let j = 0; j < solverOutputsWithCost.length; j++){
+      if (solverOutputsWithCost[j].optimalCost < minCost){
+        minCost = solverOutputsWithCost[j].optimalCost;
+        bestOutputIndex = j;
+      }
+    }
+
+    // Remove files from directory for next run
+    this.removeAllFilesInDir(path.join(parentDirectoryInputDirectory, inputDirectoryForSolver));
+
+    return solverOutputsWithCost[bestOutputIndex]
+  }
+
 
   /**
    * Calculates the optimal path to take to traverse all terminal nodes in the graph. Note this implementation uses a heuristic.
@@ -187,11 +274,14 @@ export class LinkTraversalPerformanceMetrics{
       parentDirectoryInputDirectory, 
       inputDirectoryForSolver
     );
+    
+    // Remove file after getting solver output
 
     const solverOutput = this.solverRunner.parseSolverResultHeuristic(stdout);
     // Attach the cost back to the solution, as the solver doesn't report it
     const solverOutputWithCost = this.attachCostToSolverOutput(solverOutput, edgeList);
 
+    this.removeAllFilesInDir(path.join(parentDirectoryInputDirectory, inputDirectoryForSolver));
     return solverOutputWithCost
   }
 
@@ -249,9 +339,7 @@ export class LinkTraversalPerformanceMetrics{
       numNodes,
       solverInputFileLocation
     );
-
-    // Get optimal path to traverse the documents required for k results of query
-    const solverOutputFirstKResults = await this.getOptimalPathFirstK(
+    const solverOutputFirstKResults = await this.getOptimalPathFirstKFast(
       k,
       edgeList,
       relevantDocuments,
@@ -259,9 +347,22 @@ export class LinkTraversalPerformanceMetrics{
       numNodes,
       solverOutputAllResults,
       solverInputFileLocation,
-      searchType
+      searchType, 
     );
     
+    // Get optimal path to traverse the documents required for k results of query
+    // const solverOutputFirstKResults = await this.getOptimalPathFirstK(
+    //   k,
+    //   edgeList,
+    //   relevantDocuments,
+    //   rootDocuments,
+    //   numNodes,
+    //   solverOutputAllResults,
+    //   solverInputFileLocation,
+    //   searchType
+    // );
+    // console.log(test)
+    // console.log(solverOutputFirstKResults)
     // Get metric for first k results. The engine traversal path only requires k results to be found, it does not require
     // the same documents as the optimal path found by the solver
     return this.metricOptimalPathUnweighted.getMetricRatioOptimalVsRealisedKResults(

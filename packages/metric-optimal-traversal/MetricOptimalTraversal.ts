@@ -24,7 +24,28 @@ export class MetricOptimalTraversal{
         return enginePathCost / solverOutput.optimalCost;
     }
 
-    public getMetricWeightedPenalty(){
+    /**
+     * Lower is better
+     * Function that calculates the ratio between optimal path and traversed path with weight 1, and adds a penalty based the ratio of the 
+     * cost of the optimal path / length of path and the traversed path / length of path. 
+     * This penalty term is controlled by parameter lambda. 
+     * Intuitively this is seen as a penalty or reward for taking 'better' edges on average. The importance taking better edges can be controlled
+     * by the paramter.
+     * 
+     * @param lmbda penalty coefficient
+     * @param k Number of required results
+     * @param solverOutput The solver output, includes the optimal cost / path to find first @param k results. Should have weighted edges (not 1)
+     * @param relevantDocumentNodeIds The documents required to produce the query results
+     * @param engineTraversalPath The traversal path by the engine to execute the query
+     */
+    public getMetricWeightedPenalty(
+        lambda: number,
+        k: number,
+        solverOutput: ISolverOutput,
+        relevantDocumentNodeIds: number[][], 
+        engineTraversalPath: number[][]
+    ){
+        
     }
 
     /**
@@ -65,7 +86,7 @@ export class MetricOptimalTraversal{
                     }
                 }
             }
-            if (numResultFound === k){
+            if (numResultFound >= k){
                 break;
             }
         }
