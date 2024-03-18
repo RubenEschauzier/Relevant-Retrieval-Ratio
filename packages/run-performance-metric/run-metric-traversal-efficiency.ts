@@ -168,8 +168,6 @@ export class LinkTraversalPerformanceMetrics{
     solverInputFileLocation: string,
     searchType: searchType
   ){
-    let optimalSolverOutput: ISolverOutput = {nEdges: Infinity, edges: [], optimalCost: Infinity};
-
     const numValidCombinations = this.getNumValidCombinations(relevantDocuments.length, k);
     const numNodesReducedProblem = new Set(optimalSolutionAll.edges.flat()).size;
 
@@ -187,6 +185,9 @@ export class LinkTraversalPerformanceMetrics{
     // Absolute path to the directory for code of the heuristic solver
     const heuristicSolverPath = path.join(__dirname, "..", "..", "heuristic-solver", "src");
 
+    if (fs.readdirSync(path.join(parentDirectoryInputDirectory, inputDirectoryForSolver)).length > 0){
+      console.warn("Directory with solver inputs is not empty, the metric expects this directory to be empty");
+    }
     // Write the problem files for all combinations, and after run solver on all files in directory
     for (let i = 0; i < combinations.length; i++){
       // We can decide to either do full search here or partial search
@@ -250,7 +251,20 @@ export class LinkTraversalPerformanceMetrics{
     rootDocuments: number[],
     numNodes: number,
     solverInputFileLocation: string
-  ){
+  ){    
+    const splitPath = solverInputFileLocation.split('/');
+    // We get sub-directory that the directed topology file is saved in
+    const inputDirectoryForSolver = splitPath.slice(splitPath.length - 2, splitPath.length - 1) + "/";
+    // Get absolute path to parent-directory of directory topology file is saved in
+    const parentDirectoryInputDirectory = splitPath.slice(0, splitPath.length - 2).join('/')+"/";
+    // Absolute path to the directory for code of the heuristic solver
+    const heuristicSolverPath = path.join(__dirname, "..", "..", "heuristic-solver", "src");
+
+
+    if (fs.readdirSync(path.join(parentDirectoryInputDirectory, inputDirectoryForSolver)).length > 0){
+      console.warn("Directory with solver inputs is not empty, the metric expects this directory to be empty");
+    }
+
     // Write traversal information to .stp file that serves as input to steiner tree solvers. Such format is used by various
     // solvers. 
     this.solverRunner.writeDirectedTopologyToFile(
@@ -260,14 +274,6 @@ export class LinkTraversalPerformanceMetrics{
       numNodes,
       solverInputFileLocation
     );
-    const splitPath = solverInputFileLocation.split('/');
-
-    // We get sub-directory that the directed topology file is saved in
-    const inputDirectoryForSolver = splitPath.slice(splitPath.length - 2, splitPath.length - 1) + "/";
-    // Get absolute path to parent-directory of directory topology file is saved in
-    const parentDirectoryInputDirectory = splitPath.slice(0, splitPath.length - 2).join('/')+"/";
-    // Absolute path to the directory for code of the heuristic solver
-    const heuristicSolverPath = path.join(__dirname, "..", "..", "heuristic-solver", "src");
 
     const stdout = await this.solverRunner.runSolverHeuristic(
       heuristicSolverPath, 
@@ -339,6 +345,7 @@ export class LinkTraversalPerformanceMetrics{
       numNodes,
       solverInputFileLocation
     );
+
     const solverOutputFirstKResults = await this.getOptimalPathFirstKFast(
       k,
       edgeList,

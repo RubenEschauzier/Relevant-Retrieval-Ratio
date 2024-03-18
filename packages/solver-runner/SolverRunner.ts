@@ -89,6 +89,7 @@ class SolverRunner{
     }
     return {nEdges: edges!.length, edges: edgesAsNumber, optimalCost: 0}
   }
+
   public parseAllSolverResultHeuristic(stdoutHeuristic: string): ISolverOutput[]{
     const outputSplit = stdoutHeuristic.split(/input-file\d+ /gm);
     const allSolverOutputs = [];
@@ -97,15 +98,6 @@ class SolverRunner{
       allSolverOutputs.push(outputOneRun)
     }
     return allSolverOutputs
-
-    // const reg = /^A \d+ \d+$/gm;
-    // const edges = stdoutHeuristic.match(reg);
-    // const edgesAsNumber = edges!.map(x => [Number(x.split(' ')[1]), Number(x.split(' ')[2])]);
-    // edgesAsNumber.sort((a,b) => a[0]-b[0]);
-    // if (!edges){
-    //   console.error("Solver found solution with no edges")
-    // }
-    // return {nEdges: edges!.length, edges: edgesAsNumber, optimalCost: 0}
   }
 
 }  
