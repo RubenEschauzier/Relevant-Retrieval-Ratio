@@ -140,3 +140,4 @@ dist
 !/log/.keep
 /heuristic-solver/input/full_topology/*
 !/heuristic-solver/input/full_topology/input-file.stp
+.vscode/*
