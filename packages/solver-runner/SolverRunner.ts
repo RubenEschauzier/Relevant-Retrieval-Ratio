@@ -1,4 +1,3 @@
-import { TraversedGraph } from "@comunica/actor-construct-traversed-topology-url-to-graph"
 import * as fs from "fs"; 
 import { exec } from "child_process";
 import * as util from "util";
