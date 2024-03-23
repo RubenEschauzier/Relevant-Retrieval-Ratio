@@ -251,12 +251,12 @@ export class RunLinkTraversalPerformanceMetrics{
 
   /**
    * 
-   * @param edgeList 
-   * @param relevantDocuments 
-   * @param engineTraversalPath 
-   * @param rootDocuments 
+   * @param edgeList Edgelist of traversed topology [start, end, weight]
+   * @param relevantDocuments Ids of nodes that represent the documents needed to produce results 
+   * @param engineTraversalPath Node ids of traversal order engine
+   * @param rootDocuments The seed documents used in query
    * @param solverInputFileLocation Absolute location of the place the metric calculator should construct the input file.
-   * This file will be constructed following the .stp format
+   * This file will be constructed following the .stp format. Default points to file location is github directory structure
    */
   public async runMetricAll(
     edgeList: number[][],
@@ -264,8 +264,12 @@ export class RunLinkTraversalPerformanceMetrics{
     engineTraversalPath: number[][],
     rootDocuments: number[],
     numNodes: number,
-    solverInputFileLocation: string
+    solverInputFileLocation?: string
   ){
+    if (!solverInputFileLocation){
+      solverInputFileLocation = path.join(__dirname, "..", "..", 
+      "heuristic-solver", "input", "full_topology", "input-file.stp");
+    }
     // Get optimal path to traverse the documents required for all results to query
     const shortestPath = await this.getOptimalPathAll(
       edgeList,
@@ -290,9 +294,14 @@ export class RunLinkTraversalPerformanceMetrics{
     engineTraversalPath: number[][],
     rootDocuments: number[],
     numNodes: number,
-    solverInputFileLocation: string,
-    searchType: searchType
+    searchType: searchType,
+    solverInputFileLocation?: string,
   ){
+    if (!solverInputFileLocation){
+      solverInputFileLocation = path.join(__dirname, "..", "..", 
+      "heuristic-solver", "input", "full_topology", "input-file.stp");
+    }
+
     // Get optimal path to traverse the documents required for all results of query
     // This is used in case searchType === 'reduced', as optimal path for k will only be determined within
     // the optimal traversal graph for all results
