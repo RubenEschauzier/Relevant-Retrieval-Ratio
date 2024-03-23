@@ -4,7 +4,7 @@ import { KeysBindingContext } from "@comunica/context-entries";
 import { ActionContext } from "@comunica/core";
 import { KeysTraversedTopology } from "@comunica/context-entries-link-traversal";
 import { TraversedGraph } from "@comunica/actor-construct-traversed-topology-url-to-graph"
-import {LinkTraversalPerformanceMetrics, topologyType, IMetricInput, searchType} from "../run-performance-metric/run-metric-traversal-efficiency"
+import {RunLinkTraversalPerformanceMetrics, topologyType, IMetricInput, searchType} from "../run-link-traversal-performance-metrics/RunLinkTraversalPerformanceMetrics"
 import * as path from 'path';
 import * as fs from "fs";
 
@@ -249,7 +249,7 @@ SELECT ?messageId ?messageCreationDate ?messageContent WHERE {
 // How to deal with timeouts on queries / queries that take too much data?
 
 const comunicaRunner = new runWithComunica();
-const metric = new LinkTraversalPerformanceMetrics();
+const metric = new RunLinkTraversalPerformanceMetrics();
 comunicaRunner.createEngine().then(async () => {
   const solverFileLocationBase = path.join(__dirname, "..", "..", "heuristic-solver", "input", "full_topology");
   const queryLocation = path.join(__dirname, "..", "..", "data", "queriesLocal");

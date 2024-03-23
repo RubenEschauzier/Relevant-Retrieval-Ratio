@@ -2,10 +2,11 @@
   "name": "comunica-experiment-performance-metric",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "packages/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build-watch": "tsc -w"
+    "build-watch": "tsc -w",
+    "build": "tsc"
   },
   "author": "",
   "license": "ISC",

@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from "url";
 
-export class LinkTraversalPerformanceMetrics{
+export class RunLinkTraversalPerformanceMetrics{
   public binomialLookUp: number[];
   public solverRunner: SolverRunner;
 
