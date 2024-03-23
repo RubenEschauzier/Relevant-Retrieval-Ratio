@@ -34,6 +34,7 @@ public class STPDirectedGenerator extends STPGenerator<SteinerDirectedInstance> 
 		Pattern p = Pattern.compile("((\\w|-)+)\\.stp");
 		Matcher m = p.matcher(f.getName());
 		if (m.matches()) {
+			System.out.println("HELLOOOO"+f.getName());
 			String name = m.group(1);
 
 			Integer optValue = 0;

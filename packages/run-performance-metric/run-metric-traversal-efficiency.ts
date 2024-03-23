@@ -118,7 +118,7 @@ export class LinkTraversalPerformanceMetrics{
     const numValidCombinations = this.getNumValidCombinations(relevantDocuments.length, k);
     const numNodesReducedProblem = new Set(optimalSolutionAll.edges.flat()).size;
 
-    if (numValidCombinations > 1000000){
+    if (numValidCombinations > 100000){
       console.warn(`INFO: Large number of combinations (${numValidCombinations}) to compute detected.`);
     }
 
@@ -135,51 +135,62 @@ export class LinkTraversalPerformanceMetrics{
     if (fs.readdirSync(path.join(parentDirectoryInputDirectory, inputDirectoryForSolver)).length > 0){
       console.warn("Directory with solver inputs is not empty, the metric expects this directory to be empty");
     }
-    // Write the problem files for all combinations, and after run solver on all files in directory
-    for (let i = 0; i < combinations.length; i++){
-      // We can decide to either do full search here or partial search
-      if (searchType === "full"){
-        this.solverRunner.writeDirectedTopologyToFile(
-          edgeList,
-          combinations[i],
-          rootDocuments, 
-          numNodes,
-          path.join(parentDirectoryInputDirectory, inputDirectoryForSolver, `input-file${i}.stp`) 
-        );
-      }
-      if (searchType === "reduced"){
-        this.solverRunner.writeDirectedTopologyToFile(
-          optimalSolutionAll.edges,
-          combinations[i],
-          rootDocuments,
-          numNodesReducedProblem,
-          path.join(parentDirectoryInputDirectory, inputDirectoryForSolver, `input-file${i}.stp`) 
-        );
-      } 
-    }
-    const stdout = await this.solverRunner.runSolverHeuristic(
-      heuristicSolverPath, 
-      parentDirectoryInputDirectory, 
-      inputDirectoryForSolver
-    );
-
-    const solverOutputs = this.solverRunner.parseAllSolverResultHeuristic(stdout);
-    const solverOutputsWithCost = solverOutputs.map(x => this.attachCostToSolverOutput(x, edgeList))
-
-    // TODO: CHANGE THIS TO CONSIDER BOTH UNWEIGHTED AND WEIGHTED BEST PATHS
+    const batchSize = 100000;
+    const nBatches = Math.max(1, Math.floor(combinations.length / batchSize));
+    
     let minCost = Infinity
     let bestOutputIndex = -1;
-    for (let j = 0; j < solverOutputsWithCost.length; j++){
-      if (solverOutputsWithCost[j].optimalCost < minCost){
-        minCost = solverOutputsWithCost[j].optimalCost;
-        bestOutputIndex = j;
+    let bestSolverOutput: ISolverOutput = {nEdges: -1, optimalCost: -1, edges: []};
+
+    for (let b = 0; b < nBatches; b++){
+      if (nBatches > 10){
+        console.log(`Batch ${b+1}/${nBatches}`);
       }
+      // Write the problem files for all combinations in batch, and after run solver on all files in directory
+      const maxI = Math.min(batchSize, combinations.slice(b*batchSize).length);
+      for (let i = 0; i < maxI; i++){
+        // We can decide to either do full search here or partial search
+        if (searchType === "full"){
+          this.solverRunner.writeDirectedTopologyToFile(
+            edgeList,
+            combinations[(b*batchSize) + i],
+            rootDocuments, 
+            numNodes,
+            path.join(parentDirectoryInputDirectory, inputDirectoryForSolver, `input-file${i}.stp`) 
+          );
+        }
+        if (searchType === "reduced"){
+          this.solverRunner.writeDirectedTopologyToFile(
+            optimalSolutionAll.edges,
+            combinations[(b*batchSize) + i],
+            rootDocuments,
+            numNodesReducedProblem,
+            path.join(parentDirectoryInputDirectory, inputDirectoryForSolver, `input-file${i}.stp`) 
+          );
+        } 
+      }
+      const stdout = await this.solverRunner.runSolverHeuristic(
+        heuristicSolverPath, 
+        parentDirectoryInputDirectory, 
+        inputDirectoryForSolver
+      );
+  
+      const solverOutputs = this.solverRunner.parseAllSolverResultHeuristic(stdout);
+      const solverOutputsWithCost = solverOutputs.map(x => this.attachCostToSolverOutput(x, edgeList))
+  
+      // TODO: CHANGE THIS TO CONSIDER BOTH UNWEIGHTED AND WEIGHTED BEST PATHS
+      for (let j = 0; j < solverOutputsWithCost.length; j++){
+        if (solverOutputsWithCost[j].optimalCost < minCost){
+          minCost = solverOutputsWithCost[j].optimalCost;
+          bestOutputIndex = j;
+          bestSolverOutput = solverOutputsWithCost[j];
+        }
+      }
+      
+      // Remove files from directory for next run
+      this.removeAllFilesInDir(path.join(parentDirectoryInputDirectory, inputDirectoryForSolver));  
     }
-
-    // Remove files from directory for next run
-    this.removeAllFilesInDir(path.join(parentDirectoryInputDirectory, inputDirectoryForSolver));
-
-    return solverOutputsWithCost[bestOutputIndex]
+    return bestSolverOutput;
   }
 
 
@@ -304,19 +315,6 @@ export class LinkTraversalPerformanceMetrics{
       searchType, 
     );
     
-    // Get optimal path to traverse the documents required for k results of query
-    // const solverOutputFirstKResults = await this.getOptimalPathFirstK(
-    //   k,
-    //   edgeList,
-    //   relevantDocuments,
-    //   rootDocuments,
-    //   numNodes,
-    //   solverOutputAllResults,
-    //   solverInputFileLocation,
-    //   searchType
-    // );
-    // console.log(test)
-    // console.log(solverOutputFirstKResults)
     // Get metric for first k results. The engine traversal path only requires k results to be found, it does not require
     // the same documents as the optimal path found by the solver
     return this.metricOptimalPathUnweighted.getMetricRatioOptimalVsRealisedKResults(

@@ -2,6 +2,11 @@
 # yarn lockfile v1
 
 
+"@datastructures-js/queue@^4.2.3":
+  version "4.2.3"
+  resolved "https://registry.yarnpkg.com/@datastructures-js/queue/-/queue-4.2.3.tgz#a63b155e2c1634c9b9d8fcd83969c7b3e143dff7"
+  integrity sha512-GWVMorC/xi2V2ta+Z/CPgPGHL2ZJozcj48g7y2nIX5GIGZGRrbShSHgvMViJwHJurUzJYOdIdRZnWDRrROFwJA==
+
 "@types/node@^20.8.2":
   version "20.11.28"
   resolved "https://registry.yarnpkg.com/@types/node/-/node-20.11.28.tgz#4fd5b2daff2e580c12316e457473d68f15ee6f66"

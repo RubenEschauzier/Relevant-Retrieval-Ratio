@@ -134,11 +134,9 @@ dist
 /packages/**/*.js
 /packages/**/*.map
 /packages/**/*.d.ts
-/solver/full_topology/*
-!/solver/full_topology/write.set
-/solver/reduced_topology/*
-!/solver/reduced_topology/write.set
 /data/*
 !/data/.keep
 /log/*
 !/log/.keep
+/heuristic-solver/input/full_topology/
+!/heuristic-solver/input/full_topology/input-file.stp

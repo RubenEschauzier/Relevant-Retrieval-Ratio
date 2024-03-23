@@ -11,16 +11,32 @@ import * as fs from "fs";
 
 export class runWithComunica{
     public engine: any;
-    public queryEngine: any;
+    public queryEngineFactory: any;
     public binomialLookUp: number[];
 
     public constructor(){
-      this.queryEngine = require("@comunica/query-sparql-link-traversal-solid").QueryEngine;
+      this.queryEngineFactory = require("@comunica/query-sparql-link-traversal-solid").QueryEngineFactory;
     }
 
     public async createEngine(){
       // this.engine = await new this.queryEngineFactory().create({configPath: "configFiles/config-default-variable-priorities.json"});
-      this.engine = new this.queryEngine();
+      this.engine = await new this.queryEngineFactory().create();
+    }
+
+    public async runQuery(query: string){
+      const queryOutput = await comunicaRunner.engine.query(query, 
+        {
+        idp: "void", 
+        "@comunica/bus-rdf-resolve-hypermedia-links:annotateSources": "graph", 
+        unionDefaultGraph: true, 
+        lenient: true, 
+        constructTopology: true
+      });
+      const bindingStream = await queryOutput.execute();
+      // This returns an object with the topology object in it, this will contain the topology after executing the query
+      // Execute entire query, should be a promise with timeout though
+      const bindings: Bindings[] = await bindingStream.toArray();
+      console.log(bindings.length);
     }
 
     public readQueries(location: string){
@@ -102,7 +118,9 @@ export class runWithComunica{
       ){
       const metricResults: IQueriesMetricResults[] = [];
       for (let i = 0; i < queries.length; i++){
+        await this.createEngine();
         console.log(`Calculating metric ${i+1}/${queries.length}`);
+        // await this.runQuery(queries[i])
         const metricInput: IMetricInput = await comunicaRunner.getMetricInputOfQuery(
           queries[i], 
           i,
@@ -110,25 +128,31 @@ export class runWithComunica{
           log,
           logLocation
         );
-      
-        const metricAll = await comunicaRunner.calculateMetricAll(metricInput, 
-          path.join(solverFileLocationBase, "input-file.stp"));
-        const metricsFirstK: Record<number, number> = {};
-
-        for (const k of kToTest){
-          // Check if we have enough results to calculate first k metric
-          if (metricInput.contributingNodes.length > k){
-            const metricUnweightedFirstK = await comunicaRunner.calculateMetricFirstK(metricInput, k, 
-              path.join(solverFileLocationBase, "input-file.stp"), searchType); 
-            metricsFirstK[k] = metricUnweightedFirstK;   
+        if (metricInput.contributingNodes.length > 0){
+          const metricAll = await comunicaRunner.calculateMetricAll(metricInput, 
+            path.join(solverFileLocationBase, "input-file.stp"));
+          const metricsFirstK: Record<number, number> = {};
+          for (const k of kToTest){
+            // Check if we have enough results to calculate first k metric
+            if (metricInput.contributingNodes.length > k){
+              const metricUnweightedFirstK = await comunicaRunner.calculateMetricFirstK(metricInput, k, 
+                path.join(solverFileLocationBase, "input-file.stp"), searchType); 
+              metricsFirstK[k] = metricUnweightedFirstK;   
+            }
           }
+          metricResults.push({query: queries[i], nResults: metricInput.contributingNodes.length, 
+            metricAll: metricAll, metricsFirstK: metricsFirstK}
+          );  
         }
-        metricResults.push({query: queries[i], nResults: metricInput.contributingNodes.length, 
-          metricAll: metricAll, metricsFirstK: metricsFirstK}
-        );
+        else{
+          // No results means no useful metric
+          metricResults.push({query: queries[i], nResults: metricInput.contributingNodes.length, 
+            metricAll: 0, metricsFirstK: [0,0,0]});
+        }
+
         const pathLog = path.join(__dirname, "..", "..", "log", "calculationLog.txt");
         fs.writeFileSync(pathLog, JSON.stringify(metricResults));
-        break
+        console.log(metricResults)
       }
     }
 
@@ -161,10 +185,12 @@ export class runWithComunica{
       
       // Execute entire query, should be a promise with timeout though
       const bindings: Bindings[] = await bindingStream.toArray();
+      console.log(bindings.length);
 
       // This is tied to Comunica, for metric usage with other engine you have to implement this yourself (if the contributing
       // documents are stored differently)
       const contributingDocuments = comunicaRunner.extractContributingDocuments(bindings);
+      console.log(contributingDocuments);
       const metricInput: IMetricInput = comunicaRunner.prepareMetricInput(
         constuctTopologyOutput.topology, 
         contributingDocuments, 
@@ -227,7 +253,7 @@ const metric = new LinkTraversalPerformanceMetrics();
 comunicaRunner.createEngine().then(async () => {
   const solverFileLocationBase = path.join(__dirname, "..", "..", "heuristic-solver", "input", "full_topology");
   const queryLocation = path.join(__dirname, "..", "..", "data", "queriesLocal");
-  const allQueries = comunicaRunner.readQueries(queryLocation).flat().slice(0,10);
+  const allQueries = comunicaRunner.readQueries(queryLocation).flat().slice(0,1);
   await comunicaRunner.getMetricAllQueries(
     allQueries, 
     'unweighted',
