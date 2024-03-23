@@ -4,7 +4,6 @@ import { Queue } from '@datastructures-js/queue';
 import { pathToFileURL } from 'url';
 
 var dijkstra = require('dijkstrajs');
-
 const dataTopology = JSON.parse(fs.readFileSync(path.join(__dirname, "../../log/topologyQuery0.txt"), 'utf8'));
 const metricInput = JSON.parse(fs.readFileSync(path.join(__dirname, "../../log/metricInput0.txt"), 'utf8'));
 
