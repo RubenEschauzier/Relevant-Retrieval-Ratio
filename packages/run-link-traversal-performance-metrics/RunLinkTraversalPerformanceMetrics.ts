@@ -131,6 +131,7 @@ export class RunLinkTraversalPerformanceMetrics{
     const parentDirectoryInputDirectory = splitPath.slice(0, splitPath.length - 2).join('/')+"/";
     // Absolute path to the directory for code of the heuristic solver
     const heuristicSolverPath = path.join(__dirname, "..", "..", "heuristic-solver", "src");
+    this.removeAllFilesInDir(path.join(parentDirectoryInputDirectory, inputDirectoryForSolver));
 
     if (fs.readdirSync(path.join(parentDirectoryInputDirectory, inputDirectoryForSolver)).length > 0){
       console.warn("Directory with solver inputs is not empty, the metric expects this directory to be empty");
@@ -218,6 +219,7 @@ export class RunLinkTraversalPerformanceMetrics{
     // Absolute path to the directory for code of the heuristic solver
     const heuristicSolverPath = path.join(__dirname, "..", "..", "heuristic-solver", "src");
 
+    this.removeAllFilesInDir(path.join(parentDirectoryInputDirectory, inputDirectoryForSolver));
 
     if (fs.readdirSync(path.join(parentDirectoryInputDirectory, inputDirectoryForSolver)).length > 0){
       console.warn("Directory with solver inputs is not empty, the metric expects this directory to be empty");
