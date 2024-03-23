@@ -5,11 +5,9 @@ import * as util from "util";
 
 class SolverRunner{
   public engine: any;
-  public queryEngine: any;
   public execPromise: Function;
 
   public constructor(){
-    this.queryEngine = require("@comunica/query-sparql-link-traversal-solid").QueryEngine;
     this.execPromise = util.promisify(exec);
   }
 
