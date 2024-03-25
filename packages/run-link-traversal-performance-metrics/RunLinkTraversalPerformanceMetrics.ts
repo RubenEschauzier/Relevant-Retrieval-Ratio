@@ -464,9 +464,9 @@ export type topologyType = "unweighted" | "httpRequestTime" | "documentSize";
 export type searchType = "full" | "reduced";
 
 
-const testCase = [[1,2],[1,2],[1,2],[1,3],[5],[6],[7],[3,4], [3,4], [8],[1,3], [3,4], [3,4], [1,2,3],[1,2,3],[1,2,3],[1,2,3],[1,2,3], [0]
-, [0], [0], [0], [0], [0], [0], [0], [0], [-1], [-1], [-1]];
-const testCaseNumResults = 4;
-const test = new RunLinkTraversalPerformanceMetrics();
-test.getAllValidCombinationsWithSameDocumentAggregation(testCase, testCaseNumResults);
-console.log(test.getAllValidCombinations(testCase, testCaseNumResults).length);
+// const testCase = [[1,2],[1,2],[1,2],[1,3],[5],[6],[7],[3,4], [3,4], [8],[1,3], [3,4], [3,4], [1,2,3],[1,2,3],[1,2,3],[1,2,3],[1,2,3], [0]
+// , [0], [0], [0], [0], [0], [0], [0], [0], [-1], [-1], [-1]];
+// const testCaseNumResults = 4;
+// const test = new RunLinkTraversalPerformanceMetrics();
+// test.getAllValidCombinationsWithSameDocumentAggregation(testCase, testCaseNumResults);
+// console.log(test.getAllValidCombinations(testCase, testCaseNumResults).length);
