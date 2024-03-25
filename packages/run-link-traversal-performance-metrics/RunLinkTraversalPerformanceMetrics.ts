@@ -47,6 +47,100 @@ export class RunLinkTraversalPerformanceMetrics{
     }
     return result;
   }
+  /**
+   * If results have the same contributing documents, we can aggregate them into one option. However this means that the
+   * generated combinations should sum to K with the sum taking into account the number of results in an aggregation.
+   * Furthermore, any aggregations with numResults > K should also be included.
+   */
+  public getAllValidCombinationsWithSameDocumentAggregation(contributingDocuments: number[][], numResults: number): number[][][]{
+    const documentsAndNumResults: Record<string, number> = {};
+    // Aggregate results with same contributing documents 
+    for (let i = 0; i < contributingDocuments.length; i ++){
+      const sortedArray = [...contributingDocuments[i]].sort((a, b) => a - b);
+      const keyArray: string = JSON.stringify(sortedArray);
+      documentsAndNumResults[keyArray] ? documentsAndNumResults[keyArray] += 1 : documentsAndNumResults[keyArray] = 1;
+    }
+    // Create array from Record to sort them
+    const arrayDocumentsAndNumResult: [string, number][] = []
+    
+    for (const documents in documentsAndNumResults) {
+      arrayDocumentsAndNumResult.push([documents, documentsAndNumResults[documents]]);
+    }
+    // Sort the the documents based on num results
+    arrayDocumentsAndNumResult.sort((a, b) => a[1] - b[1]);
+    
+    // To store combination
+    const allCombinations: number[][][] = [];
+    const local: number[][] = [];
+
+    // Fill allCombinations array with possible combinations
+    unique_combination(0, 0, numResults, local, arrayDocumentsAndNumResult, documentsAndNumResults);
+    
+    // If one result aggregation has more results, this should also be included as possibility
+    for (let i = 0; i < arrayDocumentsAndNumResult.length; i++){
+      if (arrayDocumentsAndNumResult[i][1] > numResults){
+        allCombinations.push([JSON.parse(arrayDocumentsAndNumResult[i][0])]);
+      }
+    }
+
+    function unique_combination(
+      l: number, 
+      sum: number,
+      numResultsNeeded: number, 
+      local: number[][], 
+      arrayDocumentsAndNumResult: [string, number][],
+      documentsAndNumResults: Record<string, number>
+      ) {
+      // If a unique combination is found
+      if (sum == numResultsNeeded) {
+        allCombinations.push(local);
+        return;
+      }
+   
+      // For all other combinations
+      for (let i = l; i < arrayDocumentsAndNumResult.length; i++) {
+   
+          // Check if the sum exceeds K
+          
+          if (sum + arrayDocumentsAndNumResult[i][1] > numResultsNeeded){
+            let potentiallyOptimal = true;
+            // Any potential combination that is over the number of results and has a document combination that produces 1 result will never be optimal
+            for (let k = 0; k < local.length; k++){
+              if (documentsAndNumResults[JSON.stringify(local[k])] == 1){
+                potentiallyOptimal = false;
+              }
+              // Any document combinations that produce more or equal to the number of results will be added later
+              if (documentsAndNumResults[JSON.stringify(local[k])] >= numResultsNeeded){
+                potentiallyOptimal = false;
+              }
+            }
+            if (arrayDocumentsAndNumResult[i][1] >= numResultsNeeded){
+              potentiallyOptimal = false;
+            }
+            if (potentiallyOptimal){
+              allCombinations.push([...local, JSON.parse(arrayDocumentsAndNumResult[i][0])]);
+            }
+            continue;
+          }
+   
+          // Take the element into the combination
+          local.push(JSON.parse(arrayDocumentsAndNumResult[i][0]));
+   
+          // Recursive call
+          unique_combination(
+            i + 1, 
+            sum + arrayDocumentsAndNumResult[i][1], 
+            numResultsNeeded, 
+            [...local], 
+            arrayDocumentsAndNumResult, 
+            documentsAndNumResults
+          );
+          // Remove element from the combination
+          local.pop();
+      }
+    }
+    return allCombinations
+  }
 
   public preComputeLookUpTable(){
       const size = 1000
@@ -118,11 +212,15 @@ export class RunLinkTraversalPerformanceMetrics{
     const numValidCombinations = this.getNumValidCombinations(relevantDocuments.length, k);
     const numNodesReducedProblem = new Set(optimalSolutionAll.edges.flat()).size;
 
-    if (numValidCombinations > 100000){
-      console.warn(`INFO: Large number of combinations (${numValidCombinations}) to compute detected.`);
+    if (numValidCombinations > 1000000){
+      console.warn(`INFO: Possibly large number of combinations (${numValidCombinations}) to compute detected.`);
     }
 
-    const combinations = this.getAllValidCombinations(relevantDocuments, k);
+    const combinations = this.getAllValidCombinationsWithSameDocumentAggregation(relevantDocuments, k);
+    
+    if (numValidCombinations > 10000000){
+      console.info(`INFO: After eliminating all results with equal contributing documents we compute: ${combinations.length} combinations`);
+    }
     
     const splitPath = solverInputFileLocation.split('/');
     // We get sub-directory that the directed topology file is saved in
@@ -362,3 +460,11 @@ export interface IMetricInput {
 export type topologyType = "unweighted" | "httpRequestTime" | "documentSize";
 
 export type searchType = "full" | "reduced";
+
+
+const testCase = [[1,2],[1,2],[1,2],[1,3],[5],[6],[7],[3,4], [3,4], [8],[1,3], [3,4], [3,4], [1,2,3],[1,2,3],[1,2,3],[1,2,3],[1,2,3], [0]
+, [0], [0], [0], [0], [0], [0], [0], [0], [-1], [-1], [-1]];
+const testCaseNumResults = 4;
+const test = new RunLinkTraversalPerformanceMetrics();
+test.getAllValidCombinationsWithSameDocumentAggregation(testCase, testCaseNumResults);
+console.log(test.getAllValidCombinations(testCase, testCaseNumResults).length);
