@@ -207,7 +207,8 @@ export class RunLinkTraversalPerformanceMetrics{
     numNodes: number,
     optimalSolutionAll: ISolverOutput,
     solverInputFileLocation: string,
-    searchType: searchType
+    searchType: searchType,
+    batchSize = 10000
   ){
     const numValidCombinations = this.getNumValidCombinations(relevantDocuments.length, k);
     const numNodesReducedProblem = new Set(optimalSolutionAll.edges.flat()).size;
@@ -221,7 +222,7 @@ export class RunLinkTraversalPerformanceMetrics{
     if (numValidCombinations > 10000000){
       console.info(`INFO: After eliminating all results with equal contributing documents we compute: ${combinations.length} combinations`);
     }
-    
+
     const splitPath = solverInputFileLocation.split('/');
     // We get sub-directory that the directed topology file is saved in
     const inputDirectoryForSolver = splitPath.slice(splitPath.length - 2, splitPath.length - 1) + "/";
@@ -234,7 +235,6 @@ export class RunLinkTraversalPerformanceMetrics{
     if (fs.readdirSync(path.join(parentDirectoryInputDirectory, inputDirectoryForSolver)).length > 0){
       console.warn("Directory with solver inputs is not empty, the metric expects this directory to be empty");
     }
-    const batchSize = 100000;
     const nBatches = Math.max(1, Math.floor(combinations.length / batchSize));
     
     let minCost = Infinity
@@ -396,6 +396,7 @@ export class RunLinkTraversalPerformanceMetrics{
     numNodes: number,
     searchType: searchType,
     solverInputFileLocation?: string,
+    batchSize?: number
   ){
     if (!solverInputFileLocation){
       solverInputFileLocation = path.join(__dirname, "..", "..", 
@@ -422,6 +423,7 @@ export class RunLinkTraversalPerformanceMetrics{
       solverOutputAllResults,
       solverInputFileLocation,
       searchType, 
+      batchSize
     );
     
     // Get metric for first k results. The engine traversal path only requires k results to be found, it does not require
