@@ -411,7 +411,9 @@ export class RunLinkTraversalPerformanceMetrics{
     numNodes: number,
     searchType: searchType,
     solverInputFileLocation?: string,
-    batchSize?: number
+    batchSize?: number,
+    allowRandomSampling?: boolean,
+    numSamples?: number
   ){
     if (!solverInputFileLocation){
       solverInputFileLocation = path.join(__dirname, "..", "..", 
@@ -438,7 +440,9 @@ export class RunLinkTraversalPerformanceMetrics{
       solverOutputAllResults,
       solverInputFileLocation,
       searchType, 
-      batchSize
+      batchSize,
+      allowRandomSampling,
+      numSamples
     );
     
     // Get metric for first k results. The engine traversal path only requires k results to be found, it does not require
