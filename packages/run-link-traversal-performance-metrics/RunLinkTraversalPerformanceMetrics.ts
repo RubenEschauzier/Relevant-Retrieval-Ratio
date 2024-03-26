@@ -197,6 +197,10 @@ export class RunLinkTraversalPerformanceMetrics{
    * @param solverInputFileLocation 
    * @param searchType "full" or "reduced". If the search for optimal first k is done over the full topology or only the reduced topology from the optimal path
    * for all results in the full topology. Full topology will require more resources, especially if the number of nodes is large
+   * @param batchSize the number of files generated and solved in one go
+   * @param allowRandomSampling Whether the it is allowed to randomly sample combinations instead of computing all. Recommended for queries with a large number 
+   * of results / large K
+   * @param numberRandomSamples 
    */
   // NOTE WE SHOULD INCLUDE ABSOLUTELY FASTEST OPTIMAL PATH (WITHOUT WEIGHTS) AND OPTIMAL PATH WITH WEIGHTS FOR FULL METRIC
   public async getOptimalPathFirstKFast(
@@ -208,19 +212,30 @@ export class RunLinkTraversalPerformanceMetrics{
     optimalSolutionAll: ISolverOutput,
     solverInputFileLocation: string,
     searchType: searchType,
-    batchSize = 10000
+    batchSize = 10000,
+    allowRandomSampling = false,
+    numberRandomSamples = 1_000_000
   ){
     const numValidCombinations = this.getNumValidCombinations(relevantDocuments.length, k);
     const numNodesReducedProblem = new Set(optimalSolutionAll.edges.flat()).size;
 
     if (numValidCombinations > 1000000){
-      console.warn(`INFO: Possibly large number of combinations (${numValidCombinations}) to compute detected.`);
+      console.info(`INFO: Possibly large number of combinations (${numValidCombinations}) to compute detected.`);
     }
 
-    const combinations = this.getAllValidCombinationsWithSameDocumentAggregation(relevantDocuments, k);
+    let combinations = this.getAllValidCombinationsWithSameDocumentAggregation(relevantDocuments, k);
     
     if (numValidCombinations > 10000000){
       console.info(`INFO: After eliminating all results with equal contributing documents we compute: ${combinations.length} combinations`);
+    }
+
+    if (allowRandomSampling && combinations.length > numberRandomSamples){
+      let shuffledCombinations = combinations
+                    .map(value => ({ value, sort: Math.random() }))
+                    .sort((a, b) => a.sort - b.sort)
+                    .map(({ value }) => value)
+      combinations = shuffledCombinations.slice(0, numberRandomSamples);
+      console.info(`INFO: Randomly sampled ${combinations.length} combinations`)
     }
 
     const splitPath = solverInputFileLocation.split('/');
