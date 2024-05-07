@@ -3,6 +3,7 @@ import { MetricOptimalTraversal } from "../metric-optimal-traversal/MetricOptima
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from "url";
+import { stringify } from "querystring";
 
 export class RunLinkTraversalPerformanceMetrics{
   public binomialLookUp: number[];
@@ -21,6 +22,40 @@ export class RunLinkTraversalPerformanceMetrics{
     for (const file of files) {
       fs.unlinkSync(path.join(directoryLocation, file));
     }
+  }
+  /**
+   * Function that takes all documents with same parents and collapses them into one document with multiple results.
+   * This is based on the observation that Solid pod documents share the same parent (the pod or directory).
+   * 
+   * @param relevantDocuments 
+   */
+  public collapseSameParentOneHopDocuments(relevantDocuments: string[][]){
+    const parentDocumentOccurences: Record<string, number> = {};
+    // Get number of contributing documents per parent path
+    for (const document of relevantDocuments.flat()){
+      const splitDocument = document.split('/');
+      splitDocument.pop();
+      const parentPathDocument = splitDocument.join('/');
+      parentDocumentOccurences[parentPathDocument] ? parentDocumentOccurences[parentPathDocument] : 1;
+    }
+    // For all parent paths that have multiple contributing documents we collapse to parent path
+    const collapsedRelevantDocuments: string[][] = [];
+    for (const relevantDocumentsResult of relevantDocuments){
+      const collapsedRelevantDocumentsSingleResult: string[] = []
+      for (const document of relevantDocumentsResult){
+        const splitDocument = document.split('/');
+        splitDocument.pop();
+        const parentPathDocument = splitDocument.join('/');
+        if (parentDocumentOccurences[parentPathDocument] > 1){
+          collapsedRelevantDocumentsSingleResult.push(parentPathDocument);
+        }
+        else{
+          collapsedRelevantDocumentsSingleResult.push(document);
+        }
+      }
+      collapsedRelevantDocuments.push(collapsedRelevantDocumentsSingleResult);
+    }
+    return collapsedRelevantDocuments;
   }
 
   public getAllValidCombinations(contributingDocuments: number[][], numResults: number): number[][][] {
@@ -207,6 +242,8 @@ export class RunLinkTraversalPerformanceMetrics{
     k: number,
     edgeList: number[][],
     relevantDocuments: number[][],
+    relevantDocumentsString: string[][],
+    documentToNode: Record<string, number>,
     rootDocuments: number[],
     numNodes: number,
     optimalSolutionAll: ISolverOutput,
@@ -222,7 +259,9 @@ export class RunLinkTraversalPerformanceMetrics{
     if (numValidCombinations > 1000000){
       console.info(`INFO: Possibly large number of combinations (${numValidCombinations}) to compute detected.`);
     }
-
+    const collapsedRelevantDocuments = this.collapseSameParentOneHopDocuments(relevantDocumentsString);
+    console.log(relevantDocumentsString);
+    console.log(collapsedRelevantDocuments);
     let combinations = this.getAllValidCombinationsWithSameDocumentAggregation(relevantDocuments, k);
     
     if (numValidCombinations > 10000000){
@@ -406,6 +445,8 @@ export class RunLinkTraversalPerformanceMetrics{
     k: number,
     edgeList: number[][],
     relevantDocuments: number[][],
+    relevantDocumentsString: string[][],
+    documentToNode: Record<string, number>,
     engineTraversalPath: number[][],
     rootDocuments: number[],
     numNodes: number,
@@ -435,6 +476,8 @@ export class RunLinkTraversalPerformanceMetrics{
       k,
       edgeList,
       relevantDocuments,
+      relevantDocumentsString,
+      documentToNode,
       rootDocuments,
       numNodes,
       solverOutputAllResults,
@@ -466,6 +509,12 @@ export interface IMetricInput {
 
   // 1 indexed contributing documents list
   contributingNodes: number[][];
+
+  // Strings of contributing documents
+  contributingDocuments: string[][];
+
+  // Convert string to document
+  documentToNode: Record<string, number>;
 
   // Engine traversal path
   traversedPath: number[][];
