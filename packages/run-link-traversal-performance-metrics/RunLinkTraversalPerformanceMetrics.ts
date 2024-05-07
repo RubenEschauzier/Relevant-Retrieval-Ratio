@@ -36,7 +36,7 @@ export class RunLinkTraversalPerformanceMetrics{
       const splitDocument = document.split('/');
       splitDocument.pop();
       const parentPathDocument = splitDocument.join('/');
-      parentDocumentOccurences[parentPathDocument] ? parentDocumentOccurences[parentPathDocument] : 1;
+      parentDocumentOccurences[parentPathDocument] = (parentDocumentOccurences[parentPathDocument] || 0) + 1;
     }
     // For all parent paths that have multiple contributing documents we collapse to parent path
     const collapsedRelevantDocuments: string[][] = [];
