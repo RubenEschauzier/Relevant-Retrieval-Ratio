@@ -23,10 +23,32 @@ export class RunLinkTraversalPerformanceMetrics{
       fs.unlinkSync(path.join(directoryLocation, file));
     }
   }
+
+  public isLeafNode(relevantDocuments: number[][], edgeList: number[][] ){
+    const onlyLeaf = [];
+    for (let i = 0; i < relevantDocuments.length; i++){
+      let resultRequiresOnlyLeaves = true;
+      for (let j = 0; j < relevantDocuments[i].length; j++){
+        const node = relevantDocuments[i][j];
+        for (const edge of edgeList){
+          // If node is parent of another node in graph its not a leaf node
+          if (edge[0] === node){
+            resultRequiresOnlyLeaves = false;
+            continue;
+          }
+        }
+      }
+      onlyLeaf.push(resultRequiresOnlyLeaves);
+    }
+    return onlyLeaf
+  }
   /**
    * Function that takes all documents with same parents and collapses them into one document with multiple results.
    * This is based on the observation that Solid pod documents share the same parent (the pod or directory).
    * 
+   * 
+   * Instead: for all result sets with same parent (which is a node) reduce to maximal k entries. So if 50 results are obtained
+   * from /pod/posts then keep only k of those.
    * @param relevantDocuments 
    */
   public collapseSameParentOneHopDocuments(relevantDocuments: string[][], nodeToIndex: Record<string, number>):
@@ -37,7 +59,9 @@ export class RunLinkTraversalPerformanceMetrics{
       const splitDocument = document.split('/');
       splitDocument.pop();
       const parentPathDocument = splitDocument.join('/') + '/';
-      parentDocumentOccurences[parentPathDocument] = (parentDocumentOccurences[parentPathDocument] || 0) + 1;
+      if (nodeToIndex[parentPathDocument]){
+        parentDocumentOccurences[parentPathDocument] = (parentDocumentOccurences[parentPathDocument] || 0) + 1;
+      }
     }
     // For all parent paths that have multiple contributing documents we collapse to parent path
     const collapsedRelevantDocuments: string[][] = [];
@@ -47,7 +71,7 @@ export class RunLinkTraversalPerformanceMetrics{
         const splitDocument = document.split('/');
         splitDocument.pop();
         const parentPathDocument = splitDocument.join('/') + '/';
-        if (parentDocumentOccurences[parentPathDocument] > 1){
+        if (nodeToIndex[parentPathDocument] && parentDocumentOccurences[parentPathDocument] > 1){
           collapsedRelevantDocumentsSingleResult.push(parentPathDocument);
         }
         else{
@@ -71,6 +95,48 @@ export class RunLinkTraversalPerformanceMetrics{
       parentDocumentOccurences,
       parentDocumentOccurencesAsIndex
     };
+  }
+
+  public downsampleEquivalentLeafResultDocumentSets(
+    k: number, 
+    relevantDocuments: string[][], 
+    nodeToIndex: Record<string, number>,
+    isLeaf: boolean[]
+  ){
+    const resultSetNumResults: Record<string, number> = {};
+    const downsampledResultSets: string[][] = [];
+    // Iterate over documents for result sets then if all documents required are leaves AND all their parent nodes are in graph
+    // We add it to a dict to represents how many results from these parent nodes (we add the parent nodes representations as key)
+    // Then we keep iterating and if a parent node representation is at k results we don't add to new document sets anymore.
+    for (let i = 0; i < relevantDocuments.length; i++){
+      // If not only leaf nodes we can't apply this optimization
+      if (!isLeaf[i]){
+        continue;
+      }
+      // Get parent node representations of this result set
+      const parentOfResultSet = relevantDocuments[i].map( document => {
+        const splitDocument = document.split('/');
+        splitDocument.pop();
+        const parentPathDocument = splitDocument.join('/') + '/';
+        if (nodeToIndex[parentPathDocument]){
+          return parentPathDocument;
+        }
+        return document
+      });
+      // Use this representation to check the number of results this exact match already contributes to
+      const resultSetAsKey = JSON.stringify(parentOfResultSet);
+      resultSetNumResults[resultSetAsKey] = (resultSetNumResults[resultSetAsKey] || 0) + 1;
+
+      // If larger than k, then adding extra of the cost result sets is pointless.
+      if (resultSetNumResults[resultSetAsKey] > k){
+        continue;
+      }
+
+      // If not we just add the original relevant document set
+      downsampledResultSets.push(relevantDocuments[i]);
+    }
+    const downsampledResultSetsAsIndex = downsampledResultSets.map(x => x.map(y => nodeToIndex[y]));
+    return downsampledResultSetsAsIndex;
   }
 
   public getAllValidCombinations(contributingDocuments: number[][], numResults: number): number[][][] {
@@ -275,10 +341,15 @@ export class RunLinkTraversalPerformanceMetrics{
       console.info(`INFO: Possibly large number of combinations (${numValidCombinations}) to compute detected.`);
     }
     console.log(relevantDocumentsString);
+    const isLeafNode = this.isLeafNode(relevantDocuments, edgeList)
+    // const collapseRelevantDocumentsOutput = this.collapseSameParentOneHopDocuments(relevantDocumentsString, documentToNode);
+    const downsampledRelevantDocuments = this.downsampleEquivalentLeafResultDocumentSets(
+      k,
+      relevantDocumentsString,
+      documentToNode,
+      isLeafNode
+    );
 
-    const collapseRelevantDocumentsOutput = this.collapseSameParentOneHopDocuments(relevantDocumentsString, documentToNode);
-
-    console.log(collapseRelevantDocumentsOutput.collapsedRelevantDocuments);
     let combinations = this.getAllValidCombinationsWithSameDocumentAggregation(relevantDocuments, k);
     
     if (numValidCombinations > 10000000){
@@ -306,6 +377,7 @@ export class RunLinkTraversalPerformanceMetrics{
     if (fs.readdirSync(path.join(parentDirectoryInputDirectory, inputDirectoryForSolver)).length > 0){
       console.warn("Directory with solver inputs is not empty, the metric expects this directory to be empty");
     }
+    
     const nBatches = Math.max(1, Math.floor(combinations.length / batchSize));
     
     let minCost = Infinity
@@ -316,7 +388,7 @@ export class RunLinkTraversalPerformanceMetrics{
       if (nBatches > 10){
         console.log(`Batch ${b+1}/${nBatches}`);
       }
-      const extraCostInBatch: number[] = [];
+      // const extraCostInBatch: number[] = [];
       // Write the problem files for all combinations in batch, and after run solver on all files in directory
       const maxI = Math.min(batchSize, combinations.slice(b*batchSize).length);
       for (let i = 0; i < maxI; i++){
@@ -340,15 +412,17 @@ export class RunLinkTraversalPerformanceMetrics{
             path.join(parentDirectoryInputDirectory, inputDirectoryForSolver, `input-file${i}.stp`) 
           );
         } 
-        let totalExtraCostCombination = 0;
-        for (const documentIndex of combinationToSearch.flat()){
-          // If our node index is a collapsed one we +1 the cost (Note this might give slightly wrong results if
-          // the parent node is also a relevant document)
-          if (collapseRelevantDocumentsOutput.parentDocumentOccurencesAsIndex[documentIndex] > 1){
-            totalExtraCostCombination += 1;
-          }
-        }
-        extraCostInBatch.push(totalExtraCostCombination);
+        // let totalExtraCostCombination = 0;
+        // for (const documentIndex of combinationToSearch.flat()){
+        //   // If our node index is a collapsed one we +1 the cost (Note this might give slightly wrong results if
+        //   // the parent node is also a relevant document)
+        //   // Also if we have one parent node that gives e.g 10 results and one non parent node that gives 3 results and we need 4
+        //   // Then this will produce wrong results, this should be addressed in the generation of combinations in future work.
+        //   if (collapseRelevantDocumentsOutput.parentDocumentOccurencesAsIndex[documentIndex] > 1){
+        //     totalExtraCostCombination += 1;
+        //   }
+        // }
+        // extraCostInBatch.push(totalExtraCostCombination);
       }
       const stdout = await this.solverRunner.runSolverHeuristic(
         heuristicSolverPath, 
@@ -359,10 +433,10 @@ export class RunLinkTraversalPerformanceMetrics{
       const solverOutputs = this.solverRunner.parseAllSolverResultHeuristic(stdout);
       const solverOutputsWithCost = solverOutputs.map(x => this.attachCostToSolverOutput(x, edgeList));
 
-      for (let i = 0; i < solverOutputsWithCost.length; i++){
-        solverOutputsWithCost[i].optimalCost += extraCostInBatch[i];
-      }
-      
+      // for (let i = 0; i < solverOutputsWithCost.length; i++){
+      //   solverOutputsWithCost[i].optimalCost += extraCostInBatch[i];
+      // }
+
       // TODO: CHANGE THIS TO CONSIDER BOTH UNWEIGHTED AND WEIGHTED BEST PATHS
       for (let j = 0; j < solverOutputsWithCost.length; j++){
         if (solverOutputsWithCost[j].optimalCost < minCost){
