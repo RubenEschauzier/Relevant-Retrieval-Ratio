@@ -341,7 +341,6 @@ export class RunLinkTraversalPerformanceMetrics{
     if (numValidCombinations > 1000000){
       console.info(`INFO: Possibly large number of combinations (${numValidCombinations}) to compute detected.`);
     }
-    console.log(relevantDocumentsString);
     const isLeafNode = this.isLeafNode(relevantDocuments, edgeList)
     // const collapseRelevantDocumentsOutput = this.collapseSameParentOneHopDocuments(relevantDocumentsString, documentToNode);
     const downsampledRelevantDocuments = this.downsampleEquivalentLeafResultDocumentSets(
@@ -351,8 +350,8 @@ export class RunLinkTraversalPerformanceMetrics{
       isLeafNode
     );
 
-
-    let combinations = this.getAllValidCombinationsWithSameDocumentAggregation(relevantDocuments, k);
+    let combinations = this.getAllValidCombinations(downsampledRelevantDocuments, k)
+    // let combinations = this.getAllValidCombinationsWithSameDocumentAggregation(relevantDocuments, k);
     
     if (numValidCombinations > 10000000){
       console.info(`INFO: After eliminating all results with equal contributing documents we compute: ${combinations.length} combinations`);
