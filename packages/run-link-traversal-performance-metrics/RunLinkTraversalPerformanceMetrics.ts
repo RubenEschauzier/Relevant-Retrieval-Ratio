@@ -29,13 +29,14 @@ export class RunLinkTraversalPerformanceMetrics{
    * 
    * @param relevantDocuments 
    */
-  public collapseSameParentOneHopDocuments(relevantDocuments: string[][]){
+  public collapseSameParentOneHopDocuments(relevantDocuments: string[][], nodeToIndex: Record<string, number>):
+  collapseRelevantDocumentsOutput {
     const parentDocumentOccurences: Record<string, number> = {};
     // Get number of contributing documents per parent path
     for (const document of relevantDocuments.flat()){
       const splitDocument = document.split('/');
       splitDocument.pop();
-      const parentPathDocument = splitDocument.join('/');
+      const parentPathDocument = splitDocument.join('/') + '/';
       parentDocumentOccurences[parentPathDocument] = (parentDocumentOccurences[parentPathDocument] || 0) + 1;
     }
     // For all parent paths that have multiple contributing documents we collapse to parent path
@@ -55,7 +56,20 @@ export class RunLinkTraversalPerformanceMetrics{
       }
       collapsedRelevantDocuments.push(collapsedRelevantDocumentsSingleResult);
     }
-    return collapsedRelevantDocuments;
+    // Convert to node indexes
+    const indexParentOccurences: Record<number, number> = {};
+    for (const key in parentDocumentOccurences){
+      if (!nodeToIndex[key]){
+        console.error("Using reduced parent URL that is not in traversed topology")
+      }
+      indexParentOccurences[nodeToIndex[key]] = parentDocumentOccurences[key];
+    }
+    const collapsedRelevantDocumentsAsIndex: number[][] = collapsedRelevantDocuments.map(x => x.map(y => nodeToIndex[y]));
+    return {
+      collapsedRelevantDocuments,
+      collapsedRelevantDocumentsAsIndex,
+      parentDocumentOccurences
+    };
   }
 
   public getAllValidCombinations(contributingDocuments: number[][], numResults: number): number[][][] {
@@ -259,9 +273,11 @@ export class RunLinkTraversalPerformanceMetrics{
     if (numValidCombinations > 1000000){
       console.info(`INFO: Possibly large number of combinations (${numValidCombinations}) to compute detected.`);
     }
-    const collapsedRelevantDocuments = this.collapseSameParentOneHopDocuments(relevantDocumentsString);
     console.log(relevantDocumentsString);
-    console.log(collapsedRelevantDocuments);
+
+    const collapseRelevantDocumentsOutput = this.collapseSameParentOneHopDocuments(relevantDocumentsString, documentToNode);
+
+    console.log(collapseRelevantDocumentsOutput.collapsedRelevantDocuments);
     let combinations = this.getAllValidCombinationsWithSameDocumentAggregation(relevantDocuments, k);
     
     if (numValidCombinations > 10000000){
@@ -525,6 +541,15 @@ export interface IMetricInput {
   // 1 indexed roots
   roots: number[];
 
+}
+
+export interface collapseRelevantDocumentsOutput {
+  // Collapsed version of document URIs
+  collapsedRelevantDocuments: string[][]
+  // Collapsed node index of documents
+  collapsedRelevantDocumentsAsIndex: number[][];
+  // The document parent URLs belonging to collapsed document URIs
+  parentDocumentOccurences: Record<string, number>;
 }
 
 export type topologyType = "unweighted" | "httpRequestTime" | "documentSize";
