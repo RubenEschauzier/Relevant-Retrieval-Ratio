@@ -46,7 +46,7 @@ export class RunLinkTraversalPerformanceMetrics{
       for (const document of relevantDocumentsResult){
         const splitDocument = document.split('/');
         splitDocument.pop();
-        const parentPathDocument = splitDocument.join('/');
+        const parentPathDocument = splitDocument.join('/') + '/';
         if (parentDocumentOccurences[parentPathDocument] > 1){
           collapsedRelevantDocumentsSingleResult.push(parentPathDocument);
         }
@@ -57,18 +57,19 @@ export class RunLinkTraversalPerformanceMetrics{
       collapsedRelevantDocuments.push(collapsedRelevantDocumentsSingleResult);
     }
     // Convert to node indexes
-    const indexParentOccurences: Record<number, number> = {};
+    const parentDocumentOccurencesAsIndex: Record<number, number> = {};
     for (const key in parentDocumentOccurences){
       if (!nodeToIndex[key]){
         console.error("Using reduced parent URL that is not in traversed topology")
       }
-      indexParentOccurences[nodeToIndex[key]] = parentDocumentOccurences[key];
+      parentDocumentOccurencesAsIndex[nodeToIndex[key]] = parentDocumentOccurences[key];
     }
     const collapsedRelevantDocumentsAsIndex: number[][] = collapsedRelevantDocuments.map(x => x.map(y => nodeToIndex[y]));
     return {
       collapsedRelevantDocuments,
       collapsedRelevantDocumentsAsIndex,
-      parentDocumentOccurences
+      parentDocumentOccurences,
+      parentDocumentOccurencesAsIndex
     };
   }
 
@@ -550,6 +551,8 @@ export interface collapseRelevantDocumentsOutput {
   collapsedRelevantDocumentsAsIndex: number[][];
   // The document parent URLs belonging to collapsed document URIs
   parentDocumentOccurences: Record<string, number>;
+  // The document index belonging to collapsed URIs
+  parentDocumentOccurencesAsIndex: Record<number, number>
 }
 
 export type topologyType = "unweighted" | "httpRequestTime" | "documentSize";
