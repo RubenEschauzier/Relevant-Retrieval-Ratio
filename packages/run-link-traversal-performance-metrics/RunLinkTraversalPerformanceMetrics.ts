@@ -111,6 +111,7 @@ export class RunLinkTraversalPerformanceMetrics{
     for (let i = 0; i < relevantDocuments.length; i++){
       // If not only leaf nodes we can't apply this optimization
       if (!isLeaf[i]){
+        downsampledResultSets.push(relevantDocuments[i]);
         continue;
       }
       // Get parent node representations of this result set
@@ -350,6 +351,7 @@ export class RunLinkTraversalPerformanceMetrics{
       isLeafNode
     );
 
+
     let combinations = this.getAllValidCombinationsWithSameDocumentAggregation(relevantDocuments, k);
     
     if (numValidCombinations > 10000000){
@@ -388,7 +390,6 @@ export class RunLinkTraversalPerformanceMetrics{
       if (nBatches > 10){
         console.log(`Batch ${b+1}/${nBatches}`);
       }
-      // const extraCostInBatch: number[] = [];
       // Write the problem files for all combinations in batch, and after run solver on all files in directory
       const maxI = Math.min(batchSize, combinations.slice(b*batchSize).length);
       for (let i = 0; i < maxI; i++){
@@ -412,17 +413,6 @@ export class RunLinkTraversalPerformanceMetrics{
             path.join(parentDirectoryInputDirectory, inputDirectoryForSolver, `input-file${i}.stp`) 
           );
         } 
-        // let totalExtraCostCombination = 0;
-        // for (const documentIndex of combinationToSearch.flat()){
-        //   // If our node index is a collapsed one we +1 the cost (Note this might give slightly wrong results if
-        //   // the parent node is also a relevant document)
-        //   // Also if we have one parent node that gives e.g 10 results and one non parent node that gives 3 results and we need 4
-        //   // Then this will produce wrong results, this should be addressed in the generation of combinations in future work.
-        //   if (collapseRelevantDocumentsOutput.parentDocumentOccurencesAsIndex[documentIndex] > 1){
-        //     totalExtraCostCombination += 1;
-        //   }
-        // }
-        // extraCostInBatch.push(totalExtraCostCombination);
       }
       const stdout = await this.solverRunner.runSolverHeuristic(
         heuristicSolverPath, 
@@ -432,10 +422,6 @@ export class RunLinkTraversalPerformanceMetrics{
   
       const solverOutputs = this.solverRunner.parseAllSolverResultHeuristic(stdout);
       const solverOutputsWithCost = solverOutputs.map(x => this.attachCostToSolverOutput(x, edgeList));
-
-      // for (let i = 0; i < solverOutputsWithCost.length; i++){
-      //   solverOutputsWithCost[i].optimalCost += extraCostInBatch[i];
-      // }
 
       // TODO: CHANGE THIS TO CONSIDER BOTH UNWEIGHTED AND WEIGHTED BEST PATHS
       for (let j = 0; j < solverOutputsWithCost.length; j++){
