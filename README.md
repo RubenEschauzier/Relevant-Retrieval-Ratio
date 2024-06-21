@@ -35,8 +35,7 @@ Steps:
     These development versions need to be linked together by adding the `/packages` and `/engines` folders to the workspaces of Comunica link traversal.
 
 2. Running the Metric Calculation:
-    Ensure that the input files (edgelist, root documents, and query-relevant documents) are properly formatted and placed in the `heuristic-solver/input/full-topology/` directory.
-    Execute the RunMetricAll method in RunLinkTraversalPerformanceMetrics to compute the STLR.
+    Start an endpoint with the provided Comunica link traversal implementation and let the benchmark runner run queries against the endpoint. This will automatically calculate the metric.
 
 ## Notes:
 
