@@ -21,7 +21,7 @@ export class MetricOptimalTraversal{
             engineTraversalPath
         );
         const enginePathCost = relevantEngineTraversalPath.reduce((accumulator, currentValue) => accumulator + currentValue[2], 0);
-        return enginePathCost / solverOutput.optimalCost;
+        return solverOutput.optimalCost / enginePathCost;
     }
 
     /**
