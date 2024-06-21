@@ -30,11 +30,11 @@ To run the solver, the input edgelist, root documents, and query-relevant docume
 We provide an example implementation of an engine that tracks the data required for the metric and a benchmark runner that calculates the metric for all issued queries.
 Steps:
 
-1. Information Tracking Implementation:
+1. **Information Tracking Implementation**:
     Implement information tracking in the following branches of Comunica and Comunica link traversal.
     These development versions need to be linked together by adding the `/packages` and `/engines` folders to the workspaces of Comunica link traversal.
 
-2. Running the Metric Calculation:
+2. **Running the Metric Calculation**:
     Start an endpoint with the provided Comunica link traversal implementation and let the benchmark runner run queries against the endpoint. This will automatically calculate the metric.
 
 ## Notes:
