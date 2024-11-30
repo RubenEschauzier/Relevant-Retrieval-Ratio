@@ -1,6 +1,6 @@
-# Shortest Traversal Length Ratio
+# Relevant Retrieval Ratio
 
-This repository contains the code required to compute the Shortest Traversal Length Ratio (STLR), an implementation agnostic link prioritization performance metric that compares current prioritization algorithms to an optimal oracle algorithm.
+This repository contains the code required to compute the Relevant Retrieval Ratio (R^3), an implementation agnostic link prioritization performance metric that compares prioritization algorithms to an optimal oracle algorithm.
 
 ## Installation
 
