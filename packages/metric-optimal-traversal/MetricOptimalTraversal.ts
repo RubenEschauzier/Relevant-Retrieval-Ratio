@@ -21,7 +21,9 @@ export class MetricOptimalTraversal{
             engineTraversalPath
         );
         const enginePathCost = relevantEngineTraversalPath.reduce((accumulator, currentValue) => accumulator + currentValue[2], 0);
-        return solverOutput.optimalCost / enginePathCost;
+        // Engine path cost is sum of all edge costs - 1 for the additional 'virtual' root node. We add this 1 to the optimal cost to
+        // prevent division by zero problems
+        return (solverOutput.optimalCost + 1) / enginePathCost;
     }
 
     /**

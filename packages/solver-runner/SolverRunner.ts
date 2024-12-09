@@ -79,11 +79,12 @@ class SolverRunner{
   public parseSolverResultHeuristic(stdoutHeuristic: string): ISolverOutput{
     const reg = /^A \d+ \d+$/gm;
     const edges = stdoutHeuristic.match(reg);
+    if (!edges){
+      console.error("Solver found solution with no edges returning 0 result")
+      return {nEdges: 0, edges: [], optimalCost: 0}
+    }
     const edgesAsNumber = edges!.map(x => [Number(x.split(' ')[1]), Number(x.split(' ')[2])]);
     edgesAsNumber.sort((a,b) => a[0]-b[0]);
-    if (!edges){
-      console.error("Solver found solution with no edges")
-    }
     return {nEdges: edges!.length, edges: edgesAsNumber, optimalCost: 0}
   }
 
