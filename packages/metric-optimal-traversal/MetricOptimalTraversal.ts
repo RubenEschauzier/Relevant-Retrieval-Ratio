@@ -27,14 +27,15 @@ export class MetricOptimalTraversal{
     }
 
     /**
-     * Lower is better
+     * Higher is better
      * Function that calculates the ratio between optimal path and traversed path with weight 1, and adds a penalty based the ratio of the 
      * cost of the optimal path / length of path and the traversed path / length of path. 
      * This penalty term is controlled by parameter lambda. 
      * Intuitively this is seen as a penalty or reward for taking 'better' edges on average. The importance taking better edges can be controlled
      * by the paramter.
+     * NOT YET IMPLEMENTED
      * 
-     * @param lmbda penalty coefficient
+     * @param lambda penalty coefficient
      * @param k Number of required results
      * @param solverOutput The solver output, includes the optimal cost / path to find first @param k results. Should have weighted edges (not 1)
      * @param relevantDocumentNodeIds The documents required to produce the query results
@@ -47,7 +48,7 @@ export class MetricOptimalTraversal{
         relevantDocumentNodeIds: number[][], 
         engineTraversalPath: number[][]
     ){
-        
+        throw new Error("Metric with weighted penalty not yet implemented")
     }
 
     /**

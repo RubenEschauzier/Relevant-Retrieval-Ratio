@@ -359,7 +359,14 @@ function getCombinationsPossible(n: number, nResults1: number[], nResults2: numb
 //     return {shortestPaths: shortestPaths, costs: costs};
 // }
 
-
+/**
+ * Initial attempts at making a new algorithm that can find the fastest way to first $k$ results. However, I think it 
+ * will always either be a heuristic or exponential in nature (intractably so). Currently it does _NOT_ work
+ * @param edgeListIncoming 
+ * @param relevantDocuments 
+ * @param nNodes 
+ * @param minNumberResults 
+ */
 function main(edgeListIncoming: number[][], relevantDocuments: number[][], nNodes: number, minNumberResults: number){
     let searchTable = initializeSearchTable(edgeListIncoming, relevantDocuments, nNodes, minNumberResults);
     searchTable = initializeRelevantDocuments(relevantDocuments, searchTable);
