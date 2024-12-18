@@ -8,8 +8,9 @@
     "build-watch": "tsc -w",
     "build": "tsc",
     "prepare": "yarn build",
-    "build-watch:ts": "tsc --watch"
-  },
+    "build-watch:ts": "tsc --watch",
+    "postinstall": "node packages/post-install/check-jdk.js"
+},
   "author": "",
   "license": "ISC",
   "dependencies": {
