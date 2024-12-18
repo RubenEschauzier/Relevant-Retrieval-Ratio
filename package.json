@@ -1,5 +1,5 @@
 {
-  "name": "comunica-experiment-performance-metric",
+  "name": "relevant-retrieval-ratio",
   "version": "1.0.0",
   "description": "",
   "main": "packages/index.js",
