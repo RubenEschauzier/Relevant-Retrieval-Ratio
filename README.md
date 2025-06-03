@@ -21,7 +21,7 @@ The metric's computation is handled in the class `RunLinkTraversalPerformanceMet
 
 - **Relevant Document Sets**: The document sets needed to produce each result (as node indexes).
 
-- **Traversal Path**: The path taken by the engine during traversal. Expects edges as arrays of numbers in the following format [start, end, weight]
+- **Traversal Path**: The path taken by the engine during traversal. Expects edges as arrays of numbers in the following format `[start, end, weight]`
 
 - **Seed Documents**: The initial documents from which the traversal starts (as node indexes).
 
